@@ -35,32 +35,43 @@ python3 -m http.server 8000
 # → http://localhost:8000/ をブラウザで開く
 ```
 
-## アプリを新しい版に差し替える
+## アプリ本体を編集する
 
-アプリ本体（ChatGPT が生成した 1 枚 HTML）は `src/clinicwalkthrough.html` に置いてあります。
-新しい HTML をもらったら、それで上書きして次を実行するだけです。
+**このリポジトリが正（マスター）です。** アプリ本体は `src/clinicwalkthrough.html` を直接編集し、
+そのあと次を実行して配信用の `index.html` を作り直します。
 
 ```bash
 python3 tools/apply-pwa-patch.py src/clinicwalkthrough.html   # index.html を作り直す
 ```
 
-このスクリプトが、アプリ本体には手を加えずに PWA 化に必要な差分だけを当て直します。
+このスクリプトは、アプリ本体には手を加えずに PWA 化に必要な差分だけを当て直します。
 
 * 同一オリジンの manifest・アイコン・Service Worker を読み込めるよう CSP を差し替え
 * manifest / テーマカラー / apple-touch-icon などの head タグを追加
 * セーフエリア（ノッチ）対応の余白、タップしやすいボタンサイズ、画面高に追従する 3D ビュー
 * Service Worker の登録と「ホーム画面に追加」ボタン
 
-差し替え後は `sw.js` の `CACHE_VERSION` を上げてください（例 `clinic-walkthrough-v1` → `-v2`）。
+編集後は `sw.js` の `CACHE_VERSION` を上げてください（例 `clinic-walkthrough-v2` → `-v3`）。
 インストール済みの端末が古いキャッシュを掴んだままになるのを防げます。
+
+### ChatGPT で作った新しい版が来たとき
+
+**そのまま上書きしないでください。** `src/clinicwalkthrough.html` には図面と照合して直した内容が
+入っており、上書きすると全部消えます（[docs/図面照合メモ.md](docs/%E5%9B%B3%E9%9D%A2%E7%85%A7%E5%90%88%E3%83%A1%E3%83%A2.md) 参照）。
+
+1. 新しい HTML を別名（例 `src/clinicwalkthrough.new.html`）で置く
+2. 現行版との差分を見て、新機能だけを `src/clinicwalkthrough.html` に取り込む
+3. 図面照合メモの修正が生きているか確認する
+4. `tools/apply-pwa-patch.py` で `index.html` を作り直す
 
 ## ファイル構成
 
 | ファイル | 役割 |
 | --- | --- |
 | `index.html` | 実際に配信されるアプリ（`src/` から生成） |
-| `src/clinicwalkthrough.html` | アプリ本体の元ファイル（PWA 化の差分を当てる前） |
-| `tools/apply-pwa-patch.py` | 元ファイルから `index.html` を作るスクリプト |
+| `src/clinicwalkthrough.html` | アプリ本体（**編集するのはこのファイル**） |
+| `tools/apply-pwa-patch.py` | 本体から `index.html` を作るスクリプト |
+| `docs/図面照合メモ.md` | 設計図と突き合わせて直した内容の記録 |
 | `manifest.webmanifest` | アプリ名・アイコン・全画面表示などの設定 |
 | `sw.js` | オフライン用の Service Worker |
 | `icons/` | ホーム画面アイコン |
