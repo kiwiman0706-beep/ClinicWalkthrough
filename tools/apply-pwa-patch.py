@@ -52,9 +52,6 @@ CSP = (
 VIEWPORT_OLD = '<meta name="viewport" content="width=device-width, initial-scale=1">'
 VIEWPORT_NEW = '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
 
-CANVAS_OLD = 'width:100%;height:500px;touch-action:none'
-CANVAS_NEW = 'width:100%;height:clamp(260px,56vh,520px);touch-action:none'
-
 STYLE_ANCHOR = ('<style>body{max-width:1120px;margin:0 auto;padding:20px;}'
                 '@media(max-width:480px){body{padding:10px;}}</style>')
 
@@ -63,36 +60,17 @@ STYLE_ANCHOR = ('<style>body{max-width:1120px;margin:0 auto;padding:20px;}'
 PWA_STYLE = '''
 <style id="clinic-pwa-style">
 /* --- PWA / touch device adjustments (added when packaging as an installable app) --- */
-html { -webkit-text-size-adjust: 100%; }
-html > body {
-  min-height: 100dvh;
-  padding-left: max(20px, env(safe-area-inset-left));
-  padding-right: max(20px, env(safe-area-inset-right));
-  padding-top: max(20px, env(safe-area-inset-top));
-  padding-bottom: max(20px, env(safe-area-inset-bottom));
-  overscroll-behavior-y: contain;
+html{-webkit-text-size-adjust:100%}
+html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:none}
+/* Keep controls thumb-sized and stop iOS zooming in when a field takes focus. */
+@media (pointer:coarse){
+  .btn{min-height:44px}
+  .form-control,.form-select{min-height:44px;font-size:16px}
 }
-@media (max-width: 480px) {
-  html > body {
-    padding-left: max(10px, env(safe-area-inset-left));
-    padding-right: max(10px, env(safe-area-inset-right));
-    padding-top: max(10px, env(safe-area-inset-top));
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
-  }
-}
-/* Keep the walk/look buttons thumb-sized and stop iOS zooming in on form focus. */
-@media (pointer: coarse) {
-  .btn { min-height: 44px; }
-  .form-control, .form-select { min-height: 44px; font-size: 16px; }
-}
-#clinic-walkthrough { touch-action: manipulation; }
-#clinic-scene, #clinic-plan { touch-action: none; }
-
-#clinic-install {
-  position: fixed;
-  right: max(12px, env(safe-area-inset-right));
-  bottom: max(12px, env(safe-area-inset-bottom));
-  z-index: 20;
+#clinic-install{
+  position:fixed;z-index:20;left:50%;transform:translateX(-50%);
+  bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  border-radius:999px;padding:10px 18px;box-shadow:0 3px 14px rgb(0 0 0 / 22%);
 }
 </style>'''
 
@@ -151,7 +129,6 @@ def patch(src: str) -> str:
 
     for old, new, label in (
         (VIEWPORT_OLD, VIEWPORT_NEW, 'viewport meta tag'),
-        (CANVAS_OLD, CANVAS_NEW, '3D canvas height'),
         (STYLE_ANCHOR, STYLE_ANCHOR + PWA_STYLE, 'page style block'),
         ('</title>', '</title>' + HEAD_TAGS, '</title>'),
         ('</body>', BODY_TAIL, '</body>'),

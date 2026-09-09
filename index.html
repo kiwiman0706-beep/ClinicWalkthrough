@@ -1046,110 +1046,260 @@ html>body{padding:0}</style>
 <style>body{max-width:1120px;margin:0 auto;padding:20px;}@media(max-width:480px){body{padding:10px;}}</style>
 <style id="clinic-pwa-style">
 /* --- PWA / touch device adjustments (added when packaging as an installable app) --- */
-html { -webkit-text-size-adjust: 100%; }
-html > body {
-  min-height: 100dvh;
-  padding-left: max(20px, env(safe-area-inset-left));
-  padding-right: max(20px, env(safe-area-inset-right));
-  padding-top: max(20px, env(safe-area-inset-top));
-  padding-bottom: max(20px, env(safe-area-inset-bottom));
-  overscroll-behavior-y: contain;
+html{-webkit-text-size-adjust:100%}
+html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:none}
+/* Keep controls thumb-sized and stop iOS zooming in when a field takes focus. */
+@media (pointer:coarse){
+  .btn{min-height:44px}
+  .form-control,.form-select{min-height:44px;font-size:16px}
 }
-@media (max-width: 480px) {
-  html > body {
-    padding-left: max(10px, env(safe-area-inset-left));
-    padding-right: max(10px, env(safe-area-inset-right));
-    padding-top: max(10px, env(safe-area-inset-top));
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
-  }
+#clinic-install{
+  position:fixed;z-index:20;left:50%;transform:translateX(-50%);
+  bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  border-radius:999px;padding:10px 18px;box-shadow:0 3px 14px rgb(0 0 0 / 22%);
 }
-/* Keep the walk/look buttons thumb-sized and stop iOS zooming in on form focus. */
-@media (pointer: coarse) {
-  .btn { min-height: 44px; }
-  .form-control, .form-select { min-height: 44px; font-size: 16px; }
+</style>
+<style id="clinic-ui">
+/* --- Full-screen app shell: top tabs, an edge-to-edge stage, floating controls --- */
+:root{
+  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);
+  --pad-btn:44px;--pad-gap:6px;
 }
-#clinic-walkthrough { touch-action: manipulation; }
-#clinic-scene, #clinic-plan { touch-action: none; }
+[hidden]{display:none!important}
 
-#clinic-install {
-  position: fixed;
-  right: max(12px, env(safe-area-inset-right));
-  bottom: max(12px, env(safe-area-inset-bottom));
-  z-index: 20;
+#clinic-walkthrough{
+  position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;
+  background:var(--background);color:var(--foreground);
+  font-size:14px;-webkit-tap-highlight-color:transparent;
+}
+
+#clinic-topbar{
+  flex:none;display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;
+  padding:calc(7px + var(--safe-t)) calc(10px + var(--safe-r)) 7px calc(10px + var(--safe-l));
+  border-bottom:1px solid var(--border);background:var(--background);z-index:5;
+}
+#clinic-topbar::-webkit-scrollbar{display:none}
+#clinic-mode-tabs{margin-inline:auto}
+.clinic-seg{flex:none;display:flex;gap:2px;padding:3px;border-radius:999px;
+  background:color-mix(in srgb,var(--foreground) 8%,transparent)}
+.clinic-seg-btn{appearance:none;border:0;background:transparent;color:var(--muted-foreground);
+  font:inherit;font-weight:600;line-height:1;white-space:nowrap;cursor:pointer;
+  padding:9px 15px;border-radius:999px;min-height:36px}
+.clinic-seg-btn[aria-selected="true"]{background:var(--background);color:var(--foreground);
+  box-shadow:0 1px 3px rgb(0 0 0 / 18%)}
+.clinic-topbtn{flex:none;width:38px;height:38px}
+
+#clinic-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--card)}
+#clinic-scene,#clinic-plan{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none}
+#clinic-scene{cursor:grab}
+#clinic-render-error{position:absolute;inset:auto 12px 12px;padding:10px 14px;border-radius:10px;
+  background:var(--background);color:var(--destructive);border:1px solid var(--border);z-index:6}
+
+/* Floating room / viewpoint pickers */
+#clinic-jump{position:absolute;z-index:3;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none;
+  top:calc(10px + var(--safe-t));left:calc(10px + var(--safe-l));right:calc(10px + var(--safe-r))}
+.clinic-chip{pointer-events:auto;display:flex;align-items:center;gap:2px;max-width:100%;
+  padding:3px 6px 3px 12px;border-radius:999px;border:1px solid var(--border);
+  background:color-mix(in srgb,var(--background) 86%,transparent);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  box-shadow:0 2px 10px rgb(0 0 0 / 12%)}
+.clinic-chip>span{font-size:12px;color:var(--muted-foreground);white-space:nowrap}
+.clinic-chip select{border:0;background:transparent;color:inherit;font:inherit;font-size:13px;
+  min-height:34px;max-width:min(48vw,260px);padding:4px;cursor:pointer;text-overflow:ellipsis}
+
+/* Google-Earth style control cluster */
+.clinic-round{appearance:none;padding:0;flex:none;display:grid;place-items:center;cursor:pointer;
+  width:var(--pad-btn);height:var(--pad-btn);border-radius:50%;
+  border:1px solid var(--border);color:var(--foreground);
+  background:color-mix(in srgb,var(--background) 88%,transparent);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  box-shadow:0 2px 8px rgb(0 0 0 / 16%);transition:transform .08s,background .12s}
+.clinic-round:active{transform:scale(.92);background:var(--accent)}
+.clinic-round:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.clinic-round svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.clinic-center svg{stroke-width:1.6}
+.clinic-center{background:color-mix(in srgb,var(--background) 94%,transparent)}
+
+#clinic-pad{position:absolute;z-index:4;display:grid;gap:var(--pad-gap);
+  grid-template-columns:repeat(3,var(--pad-btn));
+  right:calc(12px + var(--safe-r));bottom:calc(12px + var(--safe-b))}
+#clinic-zoombar{position:absolute;z-index:4;display:grid;gap:var(--pad-gap);
+  right:calc(12px + var(--safe-r));
+  bottom:calc(12px + var(--safe-b) + 3*var(--pad-btn) + 2*var(--pad-gap) + 14px)}
+
+#clinic-hud{position:absolute;z-index:2;pointer-events:none;display:flex;flex-direction:column;gap:2px;
+  left:calc(12px + var(--safe-l));bottom:calc(12px + var(--safe-b));
+  max-width:calc(100% - 3*var(--pad-btn) - 60px)}
+#clinic-hud span{align-self:flex-start;font-size:12px;line-height:1.45;color:var(--muted-foreground);
+  padding:3px 10px;border-radius:999px;
+  background:color-mix(in srgb,var(--background) 82%,transparent);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#clinic-hud span:empty{display:none}
+#clinic-walkthrough.is-plan #clinic-hud{top:calc(10px + var(--safe-t));bottom:auto;left:auto;right:calc(12px + var(--safe-r));align-items:flex-end;text-align:right;max-width:min(60%,300px)}
+
+/* Furniture editor, docked under the plan */
+#clinic-editor{flex:none;max-height:44vh;overflow:auto;border-top:1px solid var(--border);
+  background:var(--background);display:flex;flex-direction:column;gap:8px;
+  padding:10px calc(12px + var(--safe-r)) calc(10px + var(--safe-b)) calc(12px + var(--safe-l))}
+.clinic-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.clinic-nums .clinic-field{flex:1 1 96px}
+.clinic-field{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted-foreground)}
+.clinic-grow{flex:1 1 180px;min-width:0}
+.clinic-field select,.clinic-field input{font-size:14px;color:var(--foreground)}
+#clinic-editor .btn{flex:none}
+#clinic-item-info{margin:0}
+
+/* Settings drawer */
+#clinic-scrim{position:absolute;inset:0;z-index:9;background:rgb(0 0 0 / 30%)}
+#clinic-panel{position:absolute;top:0;right:0;bottom:0;z-index:10;width:min(360px,88vw);
+  display:flex;flex-direction:column;gap:16px;overflow:auto;
+  background:var(--background);border-left:1px solid var(--border);
+  box-shadow:-10px 0 34px rgb(0 0 0 / 20%);
+  padding:calc(12px + var(--safe-t)) calc(16px + var(--safe-r)) calc(24px + var(--safe-b)) 16px}
+.clinic-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.clinic-panel-head h2{margin:0;font-size:16px}
+.clinic-panel-head .clinic-round{width:36px;height:36px;box-shadow:none}
+.clinic-sec{display:flex;flex-direction:column;gap:10px}
+.clinic-sec h3{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted-foreground)}
+.clinic-colors{display:flex;gap:10px;flex-wrap:wrap}
+.clinic-colors .clinic-field{flex:1 1 88px}
+#clinic-panel .btn{width:100%}
+#clinic-panel .form-range{width:100%}
+#clinic-fov-label,#clinic-distance-label{flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px}
+#clinic-fov-label .form-range,#clinic-distance-label .form-range{flex:1 0 100%}
+
+@media (max-width:480px){
+  .clinic-seg-btn{padding:9px 12px;font-size:13px}
+  :root{--pad-btn:42px}
+}
+@media (max-height:520px){
+  :root{--pad-btn:38px}
+  #clinic-hud{display:none}
 }
 </style></head>
 <body>
 <div id="clinic-walkthrough">
-  <div class="viz-controls">
-    <label class="form-label">フロア<select class="form-select" id="clinic-view"><option value="1">1F 全体</option><option value="2">2F 全体</option></select></label>
-    <label class="form-label">見方<select class="form-select" id="clinic-mode"><option value="inside" selected>室内を歩く</option><option value="orbit">3D俯瞰・回転</option><option value="plan">平面図・家具編集</option></select></label>
-    <label class="form-label">部屋へ移動<select class="form-select" id="clinic-room"></select></label>
-    <label class="form-label">配色<select class="form-select" id="clinic-preset"><option value="natural">ナチュラル</option><option value="warm">ウォームグレージュ</option><option value="sage">セージグリーン</option><option value="blue">ブルーグレー</option></select></label>
-  </div>
-  <div class="viz-controls">
-    <label class="form-label">室内の視点<select class="form-select" id="clinic-position"><option value="street">受付前 → ガラス・街並み</option><option value="ev" selected>入口 → エレベーター</option><option value="reception">入口 → 受付</option><option value="hall">廊下 → エレベーター</option><option value="reverse">EV前 → 入口・受付</option></select></label>
-    <label class="form-check"><input class="form-check-input" type="checkbox" id="clinic-open" checked><span class="form-check-label">室内ドアをすべて開く</span></label>
-    <label class="form-check"><input class="form-check-input" type="checkbox" id="clinic-elevator"><span class="form-check-label">EV扉も開く</span></label>
-    <label class="form-check" id="clinic-entrance-label"><input class="form-check-input" type="checkbox" id="clinic-entrance"><span class="form-check-label">玄関の自動ドアを開く</span></label>
-  </div>
-  <div style="position:relative">
-    <canvas id="clinic-scene" role="img" aria-label="クリニックの3Dモデル。ドラッグで見回し、画面の移動ボタンまたは矢印キー・WASDで歩けます。" style="display:block;width:100%;height:clamp(260px,56vh,520px);touch-action:none;cursor:grab"></canvas>
+  <header id="clinic-topbar">
+    <!-- The tabs drive these; the rest of the app reads its state from them. -->
+    <select id="clinic-view" hidden aria-hidden="true" tabindex="-1"><option value="1" selected>1F 全体</option><option value="2">2F 全体</option></select>
+    <select id="clinic-mode" hidden aria-hidden="true" tabindex="-1"><option value="inside" selected>室内を歩く</option><option value="orbit">3D俯瞰・回転</option><option value="plan">平面図・家具編集</option></select>
+    <div class="clinic-seg" id="clinic-floor-tabs" role="tablist" aria-label="フロア">
+      <button type="button" role="tab" class="clinic-seg-btn" data-view="1" aria-selected="true">1F</button>
+      <button type="button" role="tab" class="clinic-seg-btn" data-view="2" aria-selected="false">2F</button>
+    </div>
+    <div class="clinic-seg" id="clinic-mode-tabs" role="tablist" aria-label="見方">
+      <button type="button" role="tab" class="clinic-seg-btn" data-mode="inside" aria-selected="true">歩く</button>
+      <button type="button" role="tab" class="clinic-seg-btn" data-mode="orbit" aria-selected="false">俯瞰</button>
+      <button type="button" role="tab" class="clinic-seg-btn" data-mode="plan" aria-selected="false">平面図</button>
+    </div>
+    <button type="button" class="clinic-round clinic-topbtn" id="clinic-panel-btn" aria-expanded="false" aria-controls="clinic-panel" aria-label="内装・出力の設定">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h7M15 17h5"/><circle cx="15" cy="7" r="2.1"/><circle cx="9" cy="12" r="2.1"/><circle cx="13" cy="17" r="2.1"/></svg>
+    </button>
+  </header>
+
+  <div id="clinic-stage">
+    <canvas id="clinic-scene" role="img" aria-label="クリニックの3Dモデル。ドラッグで見回し、画面右下の矢印または矢印キー・WASDで歩けます。"></canvas>
+    <canvas id="clinic-plan" role="img" aria-label="概略平面図。家具をドラッグして移動。選択欄と数値入力でも編集できます。" hidden></canvas>
     <div id="clinic-render-error" role="alert" hidden>3D表示を開始できませんでした。ページを再読み込みしてください。</div>
+
+    <div id="clinic-jump">
+      <label class="clinic-chip"><span>部屋</span><select class="form-select" id="clinic-room"></select></label>
+      <label class="clinic-chip" id="clinic-position-chip"><span>視点</span><select class="form-select" id="clinic-position"><option value="street">受付前 → ガラス・街並み</option><option value="ev" selected>入口 → エレベーター</option><option value="reception">入口 → 受付</option><option value="hall">廊下 → エレベーター</option><option value="reverse">EV前 → 入口・受付</option></select></label>
+    </div>
+
+    <div id="clinic-hud">
+      <span id="clinic-location"></span>
+      <span id="clinic-status" aria-live="polite">ドラッグ：見回す ／ 矢印キー・WASD：移動</span>
+    </div>
+
+    <div id="clinic-zoombar">
+      <button type="button" class="clinic-round" id="clinic-zoom-in" aria-label="拡大"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg></button>
+      <button type="button" class="clinic-round" id="clinic-zoom-out" aria-label="縮小"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+    </div>
+
+    <div id="clinic-pad" role="group" aria-label="視点と移動の操作">
+      <button type="button" class="clinic-round" id="clinic-left" aria-label="左へ向く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 4.5 8.5 9 13"/><path d="M4.5 8.5h8A7 7 0 0 1 19.5 15.5V20"/></svg></button>
+      <button type="button" class="clinic-round clinic-move" id="clinic-forward" aria-label="前へ進む"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+      <button type="button" class="clinic-round" id="clinic-right" aria-label="右へ向く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 4.5 4.5L15 13"/><path d="M19.5 8.5h-8A7 7 0 0 0 4.5 15.5V20"/></svg></button>
+      <button type="button" class="clinic-round clinic-move" id="clinic-strafe-left" aria-label="左へ動く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <button type="button" class="clinic-round clinic-center" id="clinic-home" aria-label="視点を戻す"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.2 12 4.5l8 6.7V20H4z"/><path d="M9.7 20v-5.4h4.6V20"/></svg></button>
+      <button type="button" class="clinic-round clinic-move" id="clinic-strafe-right" aria-label="右へ動く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <button type="button" class="clinic-round" id="clinic-up" aria-label="視線を上げる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 15 7-7 7 7"/></svg></button>
+      <button type="button" class="clinic-round clinic-move" id="clinic-backward" aria-label="後ろへ下がる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button>
+      <button type="button" class="clinic-round" id="clinic-down" aria-label="視線を下げる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg></button>
+    </div>
   </div>
+
   <div id="clinic-editor" hidden>
-    <canvas id="clinic-plan" role="img" aria-label="概略平面図。家具をドラッグして移動。選択欄と数値入力でも編集できます。" style="width:100%;display:block;touch-action:none"></canvas>
-    <div class="viz-controls">
-      <label class="form-label">家具・設備<select class="form-select" id="clinic-item"></select></label>
+    <div class="clinic-row">
+      <label class="clinic-field clinic-grow">家具・設備<select class="form-select" id="clinic-item"></select></label>
       <button class="btn" type="button" id="clinic-turn">90°回転</button>
     </div>
-    <div class="viz-controls">
-      <label class="form-label">横位置 X（mm）<input class="form-control" id="clinic-x" type="number" step="10" min="0" max="10800"></label>
-      <label class="form-label">縦位置 Y（mm）<input class="form-control" id="clinic-z" type="number" step="10" min="0" max="12500"></label>
-      <label class="form-label">幅（mm）<input class="form-control" id="clinic-w" type="number" step="10" min="200" max="5000"></label>
-      <label class="form-label">奥行（mm）<input class="form-control" id="clinic-d" type="number" step="10" min="200" max="5000"></label>
-      <label class="form-label">高さ（mm）<input class="form-control" id="clinic-h" type="number" step="10" min="200" max="2400"></label>
+    <div class="clinic-row clinic-nums">
+      <label class="clinic-field">横位置 X（mm）<input class="form-control" id="clinic-x" type="number" step="10" min="0" max="10800"></label>
+      <label class="clinic-field">縦位置 Y（mm）<input class="form-control" id="clinic-z" type="number" step="10" min="0" max="12500"></label>
+      <label class="clinic-field">幅（mm）<input class="form-control" id="clinic-w" type="number" step="10" min="200" max="5000"></label>
+      <label class="clinic-field">奥行（mm）<input class="form-control" id="clinic-d" type="number" step="10" min="200" max="5000"></label>
+      <label class="clinic-field">高さ（mm）<input class="form-control" id="clinic-h" type="number" step="10" min="200" max="2400"></label>
     </div>
-    <div class="text-small" id="clinic-item-info" aria-live="polite"></div>
-    <div class="viz-controls">
+    <p class="text-small" id="clinic-item-info" aria-live="polite"></p>
+    <div class="clinic-row">
       <button class="btn" id="clinic-save" type="button">配置を保存（JSON）</button>
-      <label class="form-label">配置を読み込む<input class="form-control" id="clinic-load" type="file" accept=".json,application/json"></label>
+      <label class="clinic-field clinic-grow">配置を読み込む<input class="form-control" id="clinic-load" type="file" accept=".json,application/json"></label>
     </div>
   </div>
-  <div class="viz-controls" id="clinic-walk-controls" style="margin-top:8px">
-    <button type="button" class="btn" id="clinic-forward">前へ歩く</button>
-    <button type="button" class="btn" id="clinic-backward">後ろへ</button>
-    <button type="button" class="btn" id="clinic-strafe-left">左へ移動</button>
-    <button type="button" class="btn" id="clinic-strafe-right">右へ移動</button>
-    <span class="text-small" id="clinic-location" aria-live="polite"></span>
-  </div>
-  <div class="viz-controls" id="clinic-look-controls" style="margin-top:8px">
-    <button type="button" class="btn" id="clinic-left" aria-label="左へ回転">左へ</button>
-    <button type="button" class="btn" id="clinic-right" aria-label="右へ回転">右へ</button>
-    <button type="button" class="btn" id="clinic-up" aria-label="上から見る">上から</button>
-    <button type="button" class="btn" id="clinic-down" aria-label="視線を下げる">下へ</button>
-    <button type="button" class="btn" id="clinic-home">視点を戻す</button>
-  </div>
-  <div class="viz-controls">
-    <label class="form-label" id="clinic-fov-label">画角 <span id="clinic-fov-value">98°</span><input class="form-range" type="range" min="60" max="115" value="98" id="clinic-fov"></label>
-    <label class="form-label" id="clinic-distance-label" hidden>距離 <span id="clinic-distance-value">10m</span><input class="form-range" type="range" min="4" max="30" step="0.1" value="10" id="clinic-distance"></label>
-    <label class="form-check" id="clinic-cut-label" hidden><input class="form-check-input" type="checkbox" id="clinic-cut" checked><span class="form-check-label">壁を低くして見通す</span></label>
-  </div>
-  <div class="viz-controls" style="margin-top:12px">
-    <label class="form-label">壁紙<input class="form-control form-control-color" type="color" id="clinic-wall" value="#eeeae2"></label>
-    <label class="form-label">床<input class="form-control form-control-color" type="color" id="clinic-floor" value="#c9b89e"></label>
-    <label class="form-label">受付正面<input class="form-control form-control-color" type="color" id="clinic-counter" value="#af9471"></label>
-    <label class="form-label">床柄<select class="form-select" id="clinic-pattern"><option value="wood">木目調</option><option value="tile">タイル調</option><option value="plain">無地</option></select></label>
-  </div>
-  <div class="text-small">両階全体・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</div>
-  <div class="viz-controls"><button type="button" class="btn" id="clinic-export">この視点で3D出力（GLB）</button><button type="button" class="btn" id="clinic-blender">Blender用の視点・照明設定</button></div>
-  <div class="text-small" id="clinic-export-info" aria-live="polite">出力：表示中のフロア・配置・配色・視点・画角。木目の細かな表現と照明は別途調整。</div>
-  <div class="text-small" id="clinic-status" aria-live="polite">ドラッグ：見回す ／ 矢印キー・WASD：移動</div>
+
+  <div id="clinic-scrim" hidden></div>
+  <aside id="clinic-panel" hidden aria-label="内装と出力の設定">
+    <div class="clinic-panel-head">
+      <h2>内装・出力</h2>
+      <button type="button" class="clinic-round" id="clinic-panel-close" aria-label="閉じる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+
+    <section class="clinic-sec">
+      <h3>内装</h3>
+      <label class="clinic-field">配色<select class="form-select" id="clinic-preset"><option value="natural">ナチュラル</option><option value="warm">ウォームグレージュ</option><option value="sage">セージグリーン</option><option value="blue">ブルーグレー</option></select></label>
+      <div class="clinic-colors">
+        <label class="clinic-field">壁紙<input class="form-control form-control-color" type="color" id="clinic-wall" value="#eeeae2"></label>
+        <label class="clinic-field">床<input class="form-control form-control-color" type="color" id="clinic-floor" value="#c9b89e"></label>
+        <label class="clinic-field">受付正面<input class="form-control form-control-color" type="color" id="clinic-counter" value="#af9471"></label>
+      </div>
+      <label class="clinic-field">床柄<select class="form-select" id="clinic-pattern"><option value="wood">木目調</option><option value="tile">タイル調</option><option value="plain">無地</option></select></label>
+    </section>
+
+    <section class="clinic-sec">
+      <h3>建具</h3>
+      <label class="form-check"><input class="form-check-input" type="checkbox" id="clinic-open" checked><span class="form-check-label">室内ドアをすべて開く</span></label>
+      <label class="form-check"><input class="form-check-input" type="checkbox" id="clinic-elevator"><span class="form-check-label">EV扉も開く</span></label>
+      <label class="form-check" id="clinic-entrance-label"><input class="form-check-input" type="checkbox" id="clinic-entrance"><span class="form-check-label">玄関の自動ドアを開く</span></label>
+    </section>
+
+    <section class="clinic-sec">
+      <h3>見え方</h3>
+      <label class="clinic-field" id="clinic-fov-label">画角 <span id="clinic-fov-value">98°</span><input class="form-range" type="range" min="60" max="115" value="98" id="clinic-fov"></label>
+      <label class="clinic-field" id="clinic-distance-label" hidden>距離 <span id="clinic-distance-value">10m</span><input class="form-range" type="range" min="4" max="30" step="0.1" value="10" id="clinic-distance"></label>
+      <label class="form-check" id="clinic-cut-label" hidden><input class="form-check-input" type="checkbox" id="clinic-cut" checked><span class="form-check-label">壁を低くして見通す</span></label>
+    </section>
+
+    <section class="clinic-sec">
+      <h3>書き出し</h3>
+      <button type="button" class="btn" id="clinic-export">この視点で3D出力（GLB）</button>
+      <button type="button" class="btn" id="clinic-blender">Blender用の視点・照明設定</button>
+      <p class="text-small" id="clinic-export-info" aria-live="polite">出力：表示中のフロア・配置・配色・視点・画角。木目の細かな表現と照明は別途調整。</p>
+    </section>
+
+    <p class="text-small">両階全体・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
+  </aside>
+</div>
 </div>
 <script>
 (()=>{
 const root=document.getElementById('clinic-walkthrough'),q=id=>root.querySelector('#clinic-'+id),canvas=q('scene');
 let faces=[],glassFaces=[],outside=false,signs=[],W=736,H=460,lookYaw=0,lookPitch=0,azimuth=-.65,elevation=.85;
-let solids=[],floorAreas=[],glassBarriers=[],walkPos=null;const keys=new Set();
+let solids=[],floorAreas=[],glassBarriers=[],walkPos=null,lastMode='';const keys=new Set();
 const isPlan=()=>q('mode').value==='plan';
 const isOrbit=()=>q('mode').value==='orbit',lowWalls=()=>isOrbit()&&q('cut').checked;
 const color=id=>q(id).value;
@@ -1466,12 +1616,12 @@ function editChanged(){
  q('item-info').textContent+=out?' ｜ 床の外にはみ出しています':conflict?' ｜ 壁・家具と重なっています':'';render();
 }
 function drawPlan(){
- const el=q('plan'),width=Math.max(300,el.clientWidth||canvas.clientWidth),height=width<480?470:550;
- el.width=Math.round(width*2);el.height=height*2;el.style.height=height+'px';
+ const el=q('plan'),width=Math.max(300,el.clientWidth||canvas.clientWidth),height=Math.max(320,el.clientHeight||470);
+ el.width=Math.round(width*2);el.height=Math.round(height*2);
  const c=el.getContext('2d');c.scale(2,2);
- const css=getComputedStyle(root),ink=css.getPropertyValue('--foreground').trim()||'#25302b',bg=css.getPropertyValue('--background').trim()||'#ffffff';
+ const css=getComputedStyle(root),ink=css.color||'#25302b',bg=/^rgba?\((?:[^,]+,){3}\s*0\)$/.test(css.backgroundColor)?'#ffffff':css.backgroundColor||'#ffffff';
  c.fillStyle=bg;c.fillRect(0,0,width,height);
- planScale=Math.min((width-40)/11.2,(height-50)/12.7);planOx=(width-10.8*planScale)/2;planOy=22;
+ planScale=Math.min((width-40)/11.2,(height-60)/12.7);planOx=(width-10.8*planScale)/2;planOy=Math.max(22,(height-12.5*planScale)/2);
  const X=x=>planOx+x*planScale,Y=z=>planOy+z*planScale;
  c.save();if(q('view').value==='1'){c.beginPath();c.moveTo(X(0),Y(0));c.lineTo(X(10.8),Y(0));c.lineTo(X(10.8),Y(13));c.lineTo(X(3),Y(13));c.lineTo(X(0),Y(10));c.closePath();c.clip();}
  c.fillStyle=color('floor');for(const a of floorAreas)c.fillRect(X(a[0]),Y(a[1]),(a[2]-a[0])*planScale,(a[3]-a[1])*planScale);c.restore();
@@ -1491,7 +1641,7 @@ function drawPlan(){
  c.fillStyle=ink;c.font='12px sans-serif';c.textAlign='center';c.fillText('EV',X(3.55),Y(1.25));
  const rooms=roomLabels[q('view').value];
  for(const [x,z,t]of rooms){const tw=c.measureText(t).width;c.fillStyle=bg;c.globalAlpha=.86;c.fillRect(X(x)-tw/2-2,Y(z)-11,tw+4,15);c.globalAlpha=1;c.fillStyle=ink;c.fillText(t,X(x),Y(z));}
- c.textAlign='left';c.fillText('両階全体の概略平面図・方眼 1 m',12,16);c.fillText('1 m',X(0),height-8);c.strokeStyle=ink;c.lineWidth=2;c.beginPath();c.moveTo(X(0),height-24);c.lineTo(X(1),height-24);c.stroke();
+ c.textAlign='left';c.fillText('両階全体の概略平面図・方眼 1 m',12,16);c.textAlign='right';c.fillText('1 m',width-14,height-10);c.strokeStyle=ink;c.lineWidth=2;c.beginPath();c.moveTo(width-14-planScale,height-24);c.lineTo(width-14,height-24);c.stroke();
 }
 q('item').addEventListener('change',()=>{selected=Number(q('item').value);syncFields();render();});
 for(const k of ['x','z','w','d','h'])q(k).addEventListener('change',()=>{
@@ -1604,7 +1754,10 @@ function camera(){
   }
   const forward=[Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch)],right=[-Math.cos(yaw),0,Math.sin(yaw)],up=[-Math.sin(yaw)*Math.sin(pitch),Math.cos(pitch),-Math.cos(yaw)*Math.sin(pitch)];
   // In orbit, retain a stable vertical field of view on narrow screens.
-  const fx=isOrbit()?1/(Math.tan(48*Math.PI/360)*W/H):1/Math.tan(Number(q('fov').value)*Math.PI/360);
+  let fx;
+  if(isOrbit())fx=1/(Math.tan(48*Math.PI/360)*W/H);
+  else{fx=1/Math.tan(Number(q('fov').value)*Math.PI/360);
+   const capped=1/Math.tan(88*Math.PI/360);if(fx*W/H<capped)fx=capped*H/W;}
   return {eye,forward,right,up,fx,fy:fx*W/H};
 }
 function downloadFile(data,name,type){const url=URL.createObjectURL(new Blob([data],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);}
@@ -1648,8 +1801,8 @@ function rebuild(){
   dirty=false;
 }
 function draw(){
-  frameQueued=false;W=Math.max(1,canvas.clientWidth);H=W<480?380:500;const ratio=gl?Math.min(Math.max(window.devicePixelRatio||1,1.5),2):1.5;
-  if(canvas.width!==Math.round(W*ratio)||canvas.height!==Math.round(H*ratio)){canvas.style.height=H+'px';canvas.width=Math.round(W*ratio);canvas.height=Math.round(H*ratio);}
+  frameQueued=false;W=Math.max(1,canvas.clientWidth);H=Math.max(1,canvas.clientHeight);const ratio=gl?Math.min(Math.max(window.devicePixelRatio||1,1.5),2):1.5;
+  if(canvas.width!==Math.round(W*ratio)||canvas.height!==Math.round(H*ratio)){canvas.width=Math.round(W*ratio);canvas.height=Math.round(H*ratio);}
   if(dirty)rebuild();if(isPlan()){drawPlan();return;}const c=camera();
   if(gl){
     gl.viewport(0,0,canvas.width,canvas.height);q('view').value==='1'&&!isOrbit()?gl.clearColor(.78,.87,.92,1):gl.clearColor(.947,.944,.926,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(program);
@@ -1694,11 +1847,36 @@ function draw(){
   q('location').textContent=isOrbit()?'':`位置 ${c.eye[0].toFixed(1)}m / ${c.eye[2].toFixed(1)}m`;
 }
 function render(){if(!frameQueued){frameQueued=true;requestAnimationFrame(draw);}}
-function reset(){roomView=null;walkPos=null;keys.clear();lookYaw=0;lookPitch=0;pan=[0,0];azimuth=q('view').value==='1'?-.65:2.5;elevation=.85;q('distance').value=Math.max(19,19*H/Math.max(W,320));q('fov').value=q('position').value==='ev'?88:98;render();}
+function reset(){roomView=null;walkPos=null;keys.clear();lookYaw=0;lookPitch=0;pan=[0,0];azimuth=q('view').value==='1'?-.65:2.5;
+ // A tall screen suits a more top-down angle; frame the whole floor either way.
+ elevation=W>=H?.85:1.12;
+ const half=(12.5*Math.cos(elevation)+2.6*Math.sin(elevation))/2,tv=Math.tan(24*Math.PI/180);
+ q('distance').value=clamp(Math.max(half/tv,5.4*H/(tv*Math.max(W,1)))*1.06,4,30);
+ q('fov').value=q('position').value==='ev'?88:98;render();}
 function modeChange(){
-  const orbit=isOrbit()||isPlan();q('editor').hidden=!isPlan();canvas.style.display=isPlan()?'none':'block';q('look-controls').hidden=isPlan();refreshItems();q('fov-label').hidden=orbit;q('distance-label').hidden=!isOrbit();q('cut-label').hidden=!isOrbit();
-  q('walk-controls').hidden=orbit;q('status').textContent=isPlan()?'ドラッグ：家具を移動 ／ 数値：位置・サイズ変更 ／ 方眼：1 m':orbit?'ドラッグ：回転 ／ 右ドラッグ：移動 ／ ホイール・2本指：拡大縮小':'ドラッグ：見回す ／ 矢印キー・WASD：歩く（操作欄を選択後）';dirty=true;reset();
+  const plan=isPlan(),orbit=isOrbit(),wide=orbit||plan;
+  root.classList.toggle('is-plan',plan);
+  q('editor').hidden=!plan;canvas.style.display=plan?'none':'block';q('plan').hidden=!plan;
+  q('pad').hidden=plan;q('zoombar').hidden=plan;q('jump').hidden=plan;
+  q('position-chip').hidden=orbit;q('location').hidden=wide;
+  q('fov-label').hidden=wide;q('distance-label').hidden=!orbit;q('cut-label').hidden=!orbit;
+  // The pad arrows walk indoors and slide the view when looking down on the floor.
+  for(const [id,inside,over]of [['forward','前へ進む','奥へ寄せる'],['backward','後ろへ下がる','手前へ寄せる'],
+      ['strafe-left','左へ動く','左へ寄せる'],['strafe-right','右へ動く','右へ寄せる']])
+    q(id).setAttribute('aria-label',orbit?over:inside);
+  refreshItems();syncTabs();
+  q('status').textContent=plan?'ドラッグ：家具を移動 ／ 数値：位置・サイズ変更 ／ 方眼：1 m'
+    :orbit?'ドラッグ：回転 ／ 2本指・ホイール：拡大縮小 ／ 矢印：視点を寄せる'
+    :'ドラッグ：見回す ／ 矢印キー・WASD：移動';
+  dirty=true;
+  if(orbit&&lastMode!=='orbit')reset();else render();
+  lastMode=q('mode').value;
 }
+function syncTabs(){
+  for(const [list,key,value]of [['floor-tabs','view',q('view').value],['mode-tabs','mode',q('mode').value]])
+    for(const b of q(list).children)b.setAttribute('aria-selected',String(b.dataset[key]===value));
+}
+
 function rotate(dx,dy){if(isOrbit()){azimuth+=dx;elevation=clamp(elevation+dy,.12,1.48);}else{lookYaw+=dx;lookPitch=clamp(lookPitch+dy,-1.15,1.15);}render();}
 function zoom(delta){if(isOrbit())q('distance').value=clamp(Number(q('distance').value)*Math.exp(delta),4,30);else q('fov').value=Math.round(clamp(Number(q('fov').value)*Math.exp(delta),60,115));render();}
 const pointers=new Map();let lastPinch=null;
@@ -1713,7 +1891,10 @@ canvas.addEventListener('pointermove',e=>{
 for(const ev of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(ev,e=>{pointers.delete(e.pointerId);lastPinch=null;if(!pointers.size)canvas.style.cursor='grab';});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{e.preventDefault();zoom(clamp(e.deltaY,-120,120)*.0015);},{passive:false});
 q('left').addEventListener('click',()=>rotate(-.22,0));q('right').addEventListener('click',()=>rotate(.22,0));q('up').addEventListener('click',()=>rotate(0,.15));q('down').addEventListener('click',()=>rotate(0,-.15));q('home').addEventListener('click',reset);
-for(const [id,f,s]of [['forward',1,0],['backward',-1,0],['strafe-left',0,-1],['strafe-right',0,1]])q(id).addEventListener('click',()=>move(f,s));
+function nudge(f,s){const c=camera(),step=Number(q('distance').value)*.05;
+ pan[0]+=s*step*c.right[0]+f*step*Math.sin(azimuth);pan[1]+=s*step*c.right[2]+f*step*Math.cos(azimuth);render();}
+for(const [id,f,s]of [['forward',1,0],['backward',-1,0],['strafe-left',0,-1],['strafe-right',0,1]])
+ q(id).addEventListener('click',()=>{isOrbit()?nudge(f,s):move(f,s);});
 let lastTime=0,walking=false;
 function tick(t){if(!keys.size||isOrbit()||isPlan()){walking=false;return;}const dt=lastTime?Math.min((t-lastTime)/1000,.05):.016;lastTime=t;move((keys.has('w')||keys.has('arrowup')?1:0)-(keys.has('s')||keys.has('arrowdown')?1:0),(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0),dt*1.25);requestAnimationFrame(tick);}
 document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(!['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)||isOrbit()||isPlan()||!root.contains(document.activeElement)||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;e.preventDefault();keys.add(k);if(!walking){walking=true;lastTime=0;requestAnimationFrame(tick);}});
@@ -1728,6 +1909,18 @@ q('view').addEventListener('change',()=>{
   Array.from(q('position').options).forEach((o,i)=>o.textContent=labels[i]);refreshItems();refreshRooms();dirty=true;reset();
 });
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();q('render-error').hidden=false;});
+for(const [list,key,sel]of [['floor-tabs','view','view'],['mode-tabs','mode','mode']])
+ q(list).addEventListener('click',e=>{const b=e.target.closest('[data-'+key+']');
+  if(!b||q(sel).value===b.dataset[key])return;q(sel).value=b.dataset[key];q(sel).dispatchEvent(new Event('change'));});
+q('view').addEventListener('change',syncTabs);
+q('zoom-in').addEventListener('click',()=>zoom(-.2));q('zoom-out').addEventListener('click',()=>zoom(.2));
+const panel=q('panel'),scrim=q('scrim');
+function showPanel(on){panel.hidden=!on;scrim.hidden=!on;q('panel-btn').setAttribute('aria-expanded',String(on));
+ if(on)q('panel-close').focus({preventScroll:true});else q('panel-btn').focus({preventScroll:true});}
+q('panel-btn').addEventListener('click',()=>showPanel(panel.hidden));
+q('panel-close').addEventListener('click',()=>showPanel(false));
+scrim.addEventListener('click',()=>showPanel(false));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){e.preventDefault();showPanel(false);}});
 refreshRooms();new ResizeObserver(render).observe(canvas);new ResizeObserver(render).observe(q('plan'));modeChange();
 })();
 </script>
