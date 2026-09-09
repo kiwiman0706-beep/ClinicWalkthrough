@@ -1308,7 +1308,7 @@ function doorX(x,z,w,type='hinge',direction=1){
  const h=lowWalls()?1.05:2.12;
  if(!lowWalls())box(x,2.12,z,w,.48,.10,color('wall'));
  box(x-.025,0,z-.02,.04,h,.14,'#c8bba6');box(x+w-.015,0,z-.02,.04,h,.14,'#c8bba6');
- if(q('open').checked){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(x,0,direction>0?z:z-w,.045,h,w,'#d4c9b8');}
+ if(q('open').checked&&type!=='shut'){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(x,0,direction>0?z:z-w,.045,h,w,'#d4c9b8');}
  else{box(x,0,z,w,h,.045,'#d4c9b8');box(x+w-.12,.94,z-.027,.025,.12,.025,'#727977');}
 }
 function doorZ(x,z,d,type='slide',direction=1){
@@ -1316,7 +1316,7 @@ function doorZ(x,z,d,type='slide',direction=1){
  const h=lowWalls()?1.05:2.12;
  if(!lowWalls())box(x,2.12,z,.10,.48,d,color('wall'));
  box(x-.02,0,z-.025,.14,h,.04,'#c8bba6');box(x-.02,0,z+d-.015,.14,h,.04,'#c8bba6');
- if(q('open').checked){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(direction>0?x:x-d,0,z,d,h,.045,'#d4c9b8');}
+ if(q('open').checked&&type!=='shut'){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(direction>0?x:x-d,0,z,d,h,.045,'#d4c9b8');}
  else{box(x,0,z,.045,h,d,'#d4c9b8');box(x-.025,.94,z+d-.12,.025,.12,.025,'#727977');}
 }
 function wallX(z,x0,x1,doors=[]){let p=x0;for(const d of doors){if(d[0]>p)wall(p,z,d[0]-p,.10);doorX(d[0],z,d[1],d[2]||'hinge',d[3]||1);p=d[0]+d[1];}if(p<x1)wall(p,z,x1-p,.10);}
@@ -1404,8 +1404,11 @@ function scene1(){
  floor(3.65,3.72,6.9,7.83);floor(.10,4.7,2.17,6.5);floor(.10,.10,2.50,4.50);
  wallZ(0,.1,10.0,[[2.82,1.10,'hinge',1]]);wall(0,.1,2.5,.10);
  wallX(4.5,0,2.5);wallZ(2.5,.1,4.5,[[3.45,.95,'hinge',-1]]);
- // Staircase simplified to indicate what is beyond the hall door.
- for(let i=0;i<9;i++)box(.20,i*.15,.55+i*.27,.95,.15,.27,'#d5d3cc');
+ // Flight rises northwards along the east side of the hall to a landing at the far end;
+ // the return flight above it is only hinted at.
+ for(let i=0;i<8;i++)box(1.30,i*.19,3.03-(i+1)*.2525,1.06,.19,.2525,'#d5d3cc');
+ box(.12,0,.10,2.24,1.52,.91,'#d5d3cc');
+ for(let i=0;i<3;i++)box(.12,1.52+i*.19,1.01+i*.2525,1.06,.19,.2525,'#d5d3cc');
  wallX(4.60,2.17,3.55,[[2.60,.95,'slide']]);
  wallZ(2.17,4.7,6.5,[[5.10,.90,'slide']]);wallX(6.50,0,2.17);
  // Consultation-room sliding openings, cut through the wall itself.
@@ -1414,19 +1417,24 @@ function scene1(){
 
 
  // Elevator and hall enclosure.
- wallZ(4.89,2.1,3.62,[[2.35,.80,'slide']]);floor(4.99,2.18,6.90,3.62);wall(6.90,.1,.10,3.52);wallX(1.47,4.99,6.90,[[5.20,.75,'hinge',1]]);floor(4.99,.1,6.90,2.18);wall(4.99,.1,1.91,.10);wall(4.89,.1,.1,1.99);
+ wallZ(4.89,2.1,3.62,[[2.35,.80,'slide']]);floor(4.99,2.18,6.90,3.62);wall(6.90,.1,.10,3.52);wallX(1.47,4.99,6.90,[[5.20,.75,'shut',1]]);floor(4.99,.1,6.90,2.18);wall(4.99,.1,1.91,.10);wall(4.89,.1,.1,1.99);
  elevator();
  // Existing reception footprint and finish controls.
- wall(3.60,7.83,3.34,.10);wallZ(6.94,7.83,10.45,[[9.70,.75,'slide']]);
+ wallX(7.83,3.60,6.94,[[6.06,.84,'slide']]);wallZ(6.94,7.83,10.45,[[9.70,.75,'slide']]);
  box(3.62,0,9.28,2.61,.82,.44,color('counter'));box(3.57,.82,9.23,2.71,.06,.54,'#f3f0e9');
  box(3.62,0,7.93,.30,.82,1.38,color('counter'));box(3.57,.82,7.91,.40,.06,1.38,'#f3f0e9');
  if(q('open').checked)box(6.78,0,8.75,.045,.77,.60,'#d4c9b8');else box(6.23,0,9.32,.60,.77,.055,'#d4c9b8');
 
  box(3.88,.82,8.91,.29,.29,.30,'#d9dcd6');box(3.91,1.11,8.99,.21,.045,.18,'#747d7a');
 
- wallZ(6.78,10.45,12.4,[[11.27,.75,'slide']]);
+ wall(6.78,10.45,.10,1.95);
  fullFloor1();glassFrontage();if(!isOrbit()&&!isPlan()){
-   face([[0,2.6,.1],[10.8,2.6,.1],[10.8,2.6,12.43],[2.5,2.6,12.43],[0,2.6,10]],'#f2f0e9');
+   // The entrance corner of the waiting room is open to the second floor.
+   face([[0,2.6,.1],[10.8,2.6,.1],[10.8,2.6,10.18],[0,2.6,10.18]],'#f2f0e9');
+   face([[3.81,2.6,10.18],[10.8,2.6,10.18],[10.8,2.6,12.43],[3.81,2.6,12.43]],'#f2f0e9');
+   face([[0,5.6,10.18],[3.81,5.6,10.18],[3.81,5.6,12.43],[2.43,5.6,12.43],[0,5.6,10]],'#f2f0e9');
+   face([[0,2.6,10.18],[3.81,2.6,10.18],[3.81,5.6,10.18],[0,5.6,10.18]],color('wall'),.92);
+   face([[3.81,2.6,10.18],[3.81,2.6,12.43],[3.81,5.6,12.43],[3.81,5.6,10.18]],color('wall'),.86);
    streetScene();
  }
 }
@@ -1440,7 +1448,7 @@ function scene2(){
  wallZ(4.56,2.09,3.82,[[2.43,.88,'slide']]);wall(4.56,3.82,4.20,.10);wallZ(8.76,3.92,8.25,[[7.32,.90,'slide']]);wall(6.28,2.09,.1,1.73);wallX(2.09,4.66,6.28);
  wall(2.50,7.98,1.98,.10);wall(4.48,6.08,.10,1.98);
  box(2.50,0,6.10,1.35,.85,.37,color('counter'));box(2.47,.85,6.05,1.41,.06,.48,'#f2eee7');
- if(!lowWalls())box(2.50,2.14,6.1,1.35,.46,.10,color('wall'));doorX(3.86,6.10,.61,'hinge',1);
+ if(!lowWalls())box(2.50,2.14,6.1,1.35,.46,.10,color('wall'));box(3.85,0,6.10,.62,.85,.37,color('counter'));box(3.82,.85,6.05,.68,.06,.48,'#f2eee7');
  wallX(6.10,4.58,8.76,[[5.14,.90,'slide'],[7.81,.90,'slide']]);
  wall(6.89,6.2,.10,2.6);wall(4.48,8.08,.10,1.92);fullFloor2();
 
@@ -1453,14 +1461,15 @@ function fullFloor1(){
  floor(7.04,.1,10.70,6.44);wall(7.0,.1,3.8,.1);wall(10.70,.1,.1,12.4);
  wallX(6.44,7.0,10.70,[[7.33,1.30,'hinge',-1]]);
  floor(7.04,6.54,9.08,9.52);floor(9.08,6.54,10.70,8.67);
- wallZ(9.08,6.54,8.67,[[7.48,.90,'slide']]);
+ wallZ(9.08,7.25,8.67,[[7.48,.90,'slide']]);
  wallX(8.67,9.08,10.7);floor(9.18,8.77,10.70,9.52);
  wallZ(9.08,8.67,9.52,[[8.73,.75,'slide']]);
  wallX(9.52,7.04,10.70,[[8.22,.75,'slide']]);
  floor(7.04,9.62,8.56,11.07);floor(8.66,9.62,10.70,12.40);
  wallZ(8.56,9.62,12.40,[[10.06,.90,'slide']]);
  floor(6.88,11.17,7.64,12.4);floor(7.74,11.17,8.56,12.4);
- wallX(11.07,6.88,8.56,[[7.77,.75,'slide']]);wall(7.64,11.17,.10,1.23);
+ wallX(11.07,6.88,8.56,[[6.98,.66,'slide'],[7.80,.70,'slide']]);
+ wall(7.64,11.17,.10,1.23);wall(6.88,11.17,.10,1.23);
  wall(6.85,12.40,3.95,.10);
  pillars();post(2.69,12.18,.40);
 }
@@ -1475,7 +1484,7 @@ function fullFloor2(){
  floor(4.58,8.80,8.76,10);floor(4.99,10,8.76,12.4);floor(6.25,12.1,8.76,12.50);
  wallX(9.90,8.76,10.70);floor(8.86,10,10.70,12.40);
  wallZ(8.76,8.35,12.40,[[10.85,.90,'hinge',1]]);
- wallX(12.40,6.25,10.70);wallZ(4.89,10,12.1,[[10.09,1.00,'hinge',1]]);wall(4.89,12,1.36,.10);wall(6.15,12,.1,.40);
+ wallX(12.40,6.25,10.70);wallZ(4.89,10,12.1,[[10.09,1.00,'shut',1]]);wall(4.89,12,1.36,.10);wall(6.15,12,.1,.40);
  // Rail at the edge of the loading void (not a walkable room).
  pillars();post2f();
  box(2.5,0,9.97,2.4,.95,.045,'#89938d');
@@ -1499,14 +1508,19 @@ let layouts={
  make('診察机 2','desk',3.80,3.74,2.22,.67,.75,0,'図面の机位置・向きを再照合／外形は図面から概算'),make('診察机 1','desk',3.80,5.76,2.22,.67,.75,0,'図面の机位置・向きを再照合／外形は図面から概算'),
  make('診察室2 医師椅子','chair',4.65,4.52,.48,.48,.85),make('診察室1 医師椅子','chair',4.65,6.50,.48,.48,.85),
  make('診察室2 患者丸椅子','stool',3.86,4.52,.46,.46,.48),make('診察室1 患者丸椅子','stool',3.86,6.50,.46,.46,.48),make('診察室1 診察台','bed',4.22,7.17,1.75,.55,.60,0,'図面の横向き配置に修正／外形は概算'),
- make('待合ベンチ 1','bench',.15,6.65,2.40,.57,.94,270,'図面どおり背を外壁側に修正'),make('待合ベンチ 2','bench',1.55,6.65,1.80,.57,.94,270),make('待合ベンチ 3（斜め）','bench',.65,9.13,1.21,.56,.94,225,'図面の45°振り2人掛けを追加'),
- make('患者用便器','toilet',.50,4.90,.42,.72,.78),make('職員用便器','toilet',9.85,8.85,.42,.72,.78,270),make('受付作業机','desk',3.78,7.98,.62,1.08,.80),make('受付丸椅子1','stool',4.58,8.49,.46,.46,.48),make('受付丸椅子2','stool',5.38,8.49,.46,.46,.48)
+ make('待合ベンチ 1','bench',.15,6.65,2.40,.57,.94,270,'図面どおり背を外壁側に修正'),make('待合ベンチ 2','bench',1.55,6.65,1.80,.57,.94,270),make('待合ベンチ 3（斜め）','bench',.35,9.85,1.21,.56,.94,225,'手書き修正どおり入口寄りへ移動'),
+ make('患者用便器','toilet',.50,4.90,.42,.72,.78),make('職員用便器','toilet',9.85,8.85,.42,.72,.78,270),make('受付作業机','desk',3.78,7.98,.62,1.08,.80),make('受付丸椅子1','stool',4.58,8.49,.46,.46,.48),make('受付丸椅子2','stool',5.38,8.49,.46,.46,.48),
+ make('WC小便器','urinal',1.43,4.33,.35,.35,1.00,0,'手書き修正で追加'),make('WC洗面台','sink',.12,5.85,.28,.50,.80,0,'手書き修正で追加'),
+ make('裏 小型冷蔵庫','cabinet',6.35,1.73,.55,.43,.85,0,'手書き修正で追加'),make('裏 洗面台','sink',6.62,2.40,.28,.50,.80,0,'手書き修正で追加')
  ],
  '2':[
  make('診療机','desk',4.65,6.42,.70,1.60,.75,0,'幅・奥行は図面の 700 × 1,600 mm／高さは仮'),
  make('心療内科診察机','ldesk',.15,6.55,1.50,1.12,.75,0,'図面のL型配置を反映／外形は概算'),make('診療室1 医師椅子','chair',5.42,7.35,.48,.48,.85,90),make('診療室1 患者丸椅子','stool',5.42,6.60,.46,.46,.48),
  make('心療内科 医師椅子','chair',.62,5.99,.48,.48,.85),make('心療内科 患者椅子','chair',.65,7.73,.48,.48,.85,180),make('心療内科 同伴者丸椅子','stool',1.68,6.89,.46,.46,.48),make('診療室2 診察台','bed',7.02,6.65,.65,1.85,.60),make('診療室1 診察台','bed',6.10,6.65,.65,1.85,.60),
- make('患者用便器','toilet',5.50,2.40,.42,.72,.78),make('受付作業机','desk',2.55,7.28,1.30,.50,.77)
+ make('患者用便器','toilet',5.50,2.40,.42,.72,.78),make('受付キャビネット','cabinet',2.55,7.28,1.30,.50,.85,0,'手書き修正でキャビネットに変更'),
+ make('受付椅子1','chair',2.62,6.80,.48,.48,.85,180),make('受付椅子2','chair',3.35,6.80,.48,.48,.85,180),
+ make('待合ベンチ 1','bench',4.70,4.30,3.60,.55,.94,0,'手書き修正で追加'),make('待合ベンチ 2','bench',6.00,5.50,1.75,.55,.94,180,'手書き修正で追加'),
+ make('WC小便器','urinal',4.80,2.95,.35,.35,1.00,0,'手書き修正で追加'),make('WC洗面台','sink',6.38,3.30,.28,.50,.80,0,'手書き修正で追加')
  ]
 };
 layouts['1'].push(
@@ -1555,6 +1569,8 @@ function renderFurniture(){
    B(.34,.13,.48,.32,.23,.50,'#cad4d2');B(.27,.36,.28,.46,.045,.72,'#e7eeeb');solids.push(bounds(f));
   }else if(f.type==='xray'){B(.02,0,.03,.18,1,.20,'#c3cccb');B(.10,.86,.05,.65,.09,.15,'#c3cccb');B(.62,.68,.03,.27,.22,.22,'#e5eae5');B(.25,.25,.27,.60,.05,.70,'#d5e0dd');B(.45,0,.47,.22,.25,.30,'#a9b6b2');
   }else if(f.type==='cabinet'){B(0,0,0,1,1,1,'#d6dcd5');B(.85,.48,-.015,.035,.15,.03,'#747f79');
+  }else if(f.type==='sink'){B(.06,.72,.06,.88,.14,.88,'#eef1ee');B(.20,.60,.20,.60,.12,.60,'#e3e8e5');B(.42,.86,.10,.16,.16,.10,'#9aa3a0');B(.30,0,.30,.40,.60,.40,'#e6eae7');
+  }else if(f.type==='urinal'){B(.10,.34,.10,.80,.56,.62,'#eef1ee');B(.22,.30,.16,.56,.10,.50,'#e3e8e5');B(.40,.92,.06,.20,.08,.12,'#9aa3a0');
   }else if(f.type==='ldesk'){B(0,.94,0,1,.06,.5,'#e1d5c3');B(0,.94,.5,.45,.06,.5,'#e1d5c3');for(const [x,z] of [[.05,.05],[.90,.05],[.05,.90],[.35,.90]])B(x,0,z,.045,.94,.045,'#a4a49d');
   }else if(f.type==='stool'){for(let i=0;i<24;i++){const a=i*Math.PI/12,b=(i+1)*Math.PI/12,p=t=>pt(.5+.48*Math.cos(t),1,.5+.48*Math.sin(t));face([pt(.5,1,.5),p(a),p(b)],'#a7aea0');}B(.14,0,.14,.72,.9,.72,'#7e8980');
   }else if(f.type==='desk'){
@@ -1631,10 +1647,10 @@ q('plan').addEventListener('pointerdown',e=>{
 });
 q('plan').addEventListener('pointermove',e=>{if(!dragItem)return;const [x,z]=planPoint(e),f=items()[selected];f.x=Math.round(clamp(x-dragItem.dx,0,10.8)*100)/100;f.z=Math.round(clamp(z-dragItem.dz,0,12.5)*100)/100;editChanged();});
 for(const ev of ['pointerup','pointercancel','lostpointercapture'])q('plan').addEventListener(ev,()=>dragItem=null);
-q('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'clinic-layout-full-v4',layouts},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='clinic-layout.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+q('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'clinic-layout-full-v5',layouts},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='clinic-layout.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 q('load').addEventListener('change',async()=>{
  try{
-  const file=q('load').files[0];if(!file)return;if(file.size>1000000)throw Error();const data=JSON.parse(await file.text());if(data.format!=='clinic-layout-full-v4')throw Error();
+  const file=q('load').files[0];if(!file)return;if(file.size>1000000)throw Error();const data=JSON.parse(await file.text());if(data.format!=='clinic-layout-full-v5')throw Error();
   const next={};for(const level of ['1','2']){const ar=data.layouts[level];if(!Array.isArray(ar)||ar.length!==layouts[level].length)throw Error();next[level]=ar.map((f,i)=>{
    if(f.type!==layouts[level][i].type||!['x','z','w','d','h'].every(k=>Number.isFinite(f[k]))||f.x<0||f.x>10.8||f.z<0||f.z>12.5||f.w<.2||f.w>5||f.d<.2||f.d>5||f.h<.2||f.h>2.4||!Number.isInteger(f.r)||f.r<0||f.r>359)throw Error();
    return {...layouts[level][i],...Object.fromEntries(['x','z','w','d','h','r'].map(k=>[k,f[k]])),source:'読み込み値（図面寸法との再照合が必要）'};
