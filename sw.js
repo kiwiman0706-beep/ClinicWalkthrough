@@ -2,7 +2,7 @@
 // The app is a single self-contained HTML file with no external requests, so a
 // small precache is enough to make it work fully offline once installed.
 // Bump CACHE_VERSION whenever index.html or the icons change.
-const CACHE_VERSION = 'clinic-walkthrough-v6';
+const CACHE_VERSION = 'clinic-walkthrough-v7';
 const PRECACHE = [
   './',
   './index.html',
