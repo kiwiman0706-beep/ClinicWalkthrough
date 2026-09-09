@@ -1261,7 +1261,7 @@ html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:n
 
     <section class="clinic-sec">
       <h3>内装</h3>
-      <label class="clinic-field">配色<select class="form-select" id="clinic-preset"><option value="natural">ナチュラル</option><option value="warm">ウォームグレージュ</option><option value="sage">セージグリーン</option><option value="blue">ブルーグレー</option></select></label>
+      <label class="clinic-field">配色<select class="form-select" id="clinic-preset"><option value="natural">ナチュラル</option><option value="warm">ウォームグレージュ</option><option value="sage">セージグリーン</option><option value="blue">ブルーグレー</option><option value="walnut">ウォールナット×モザイク</option><option value="charcoal">チャコール×ライトウッド</option><option value="offwhite">オフホワイト</option><option value="terrazzo">テラゾー×オーク</option><option value="lightoak">ライトオーク×ペールブルー</option><option value="darkwood">ダークウッド×ストーン</option><option value="teal">グレー×ティール</option><option value="warmoak">ウォームオーク</option></select></label>
       <div class="clinic-colors">
         <label class="clinic-field">壁紙<input class="form-control form-control-color" type="color" id="clinic-wall" value="#eeeae2"></label>
         <label class="clinic-field">床<input class="form-control form-control-color" type="color" id="clinic-floor" value="#c9b89e"></label>
@@ -1303,7 +1303,21 @@ let solids=[],floorAreas=[],glassBarriers=[],walkPos=null,lastMode='';const keys
 const isPlan=()=>q('mode').value==='plan';
 const isOrbit=()=>q('mode').value==='orbit',lowWalls=()=>isOrbit()&&q('cut').checked;
 const color=id=>q(id).value;
-const presets={natural:['#eeeae2','#c9b89e','#af9471','wood'],warm:['#e9e3dc','#b9b0a5','#a69988','tile'],sage:['#e9ece3','#d0c2a9','#8e9f87','wood'],blue:['#eceeed','#bfc2c1','#718792','tile']};
+// Schemes taken from the reference clinic interiors: [wall, floor, counter front, floor pattern].
+const presets={
+ natural:['#eeeae2','#c9b89e','#af9471','wood'],
+ warm:['#e9e3dc','#b9b0a5','#a69988','tile'],
+ sage:['#e9ece3','#d0c2a9','#8e9f87','wood'],
+ blue:['#eceeed','#bfc2c1','#718792','tile'],
+ walnut:['#e4dbc9','#6f6d68','#7c5c3c','plain'],
+ charcoal:['#787c7d','#cbc8c0','#b08f62','tile'],
+ offwhite:['#f4f1ea','#e4ded2','#e9e2d4','plain'],
+ terrazzo:['#e2d5c1','#d6d6d2','#c6a86e','tile'],
+ lightoak:['#e8ddca','#e3e1db','#b6c5cf','tile'],
+ darkwood:['#ded4c3','#e0d5c4','#5b4331','wood'],
+ teal:['#b9bfc0','#e3e2de','#4e8f8a','tile'],
+ warmoak:['#f0ece4','#c49a63','#7a5636','wood'],
+};
 function face(v,c,k=1){
 // Match the angled entrance edge when drawing the first-floor finish.
 if(!outside&&q('view').value==='1'&&v.every(p=>p[1]<.01)){
