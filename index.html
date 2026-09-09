@@ -1535,7 +1535,7 @@ let layouts={
  make('診察机 2','desk',3.80,3.74,2.22,.67,.75,0,'図面の机位置・向きを再照合／外形は図面から概算'),make('診察机 1','desk',3.80,5.76,2.22,.67,.75,0,'図面の机位置・向きを再照合／外形は図面から概算'),
  make('診察室2 医師椅子','chair',4.65,4.52,.48,.48,.85),make('診察室1 医師椅子','chair',4.65,6.50,.48,.48,.85),
  make('診察室2 患者丸椅子','stool',3.86,4.52,.46,.46,.48),make('診察室1 患者丸椅子','stool',3.86,6.50,.46,.46,.48),make('診察室1 診察台','bed',4.22,7.17,1.75,.55,.60,0,'図面の横向き配置に修正／外形は概算'),
- make('待合ベンチ 1','bench',.15,6.65,2.40,.57,.94,270,'図面どおり背を外壁側に修正'),make('待合ベンチ 2','bench',1.55,6.65,1.80,.57,.94,270),make('待合ベンチ 3（斜め）','bench',.35,9.85,1.21,.56,.94,225,'手書き修正どおり入口寄りへ移動'),
+ make('待合ベンチ 1','bench',.15,6.65,2.40,.57,.94,270,'図面どおり背を外壁側に修正'),make('待合ベンチ 2','bench',1.55,6.65,1.80,.57,.94,270),make('待合ベンチ 3（斜め）','bench',.35,9.30,1.21,.56,.94,225,'手書き修正で入口寄りへ移動／通路の逃げを確保'),
  make('患者用便器','toilet',.50,4.90,.42,.72,.78),make('職員用便器','toilet',9.85,8.85,.42,.72,.78,270),make('受付作業机','desk',3.78,7.98,.62,1.08,.80),make('受付丸椅子1','stool',4.58,8.49,.46,.46,.48),make('受付丸椅子2','stool',5.38,8.49,.46,.46,.48),
  make('WC小便器','urinal',1.43,4.33,.35,.35,1.00,0,'手書き修正で追加'),make('WC洗面台','sink',.12,5.85,.28,.50,.80,0,'手書き修正で追加'),
  make('裏 小型冷蔵庫','cabinet',6.35,1.73,.55,.43,.85,0,'手書き修正で追加'),make('裏 洗面台','sink',6.62,2.40,.28,.50,.80,0,'手書き修正で追加')
@@ -1729,11 +1729,11 @@ if(gl){
 if(!gl&&!ctx){q('render-error').hidden=false;return;}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function shadowRects(){const a=items().map(bounds).slice(0,8);while(a.length<8)a.push([99,99,99,99]);return a;}
-function canStand(x,z){
+function canStand(x,z,ignoreSolids){
  const r=.13;
  if(q('view').value==='1'&&x-z+10<r)return false;
  if(!floorAreas.some(a=>x>=a[0]&&x<=a[2]&&z>=a[1]&&z<=a[3]))return false;
- if(solids.some(a=>x>a[0]-r&&x<a[2]+r&&z>a[1]-r&&z<a[3]+r))return false;
+ if(!ignoreSolids&&solids.some(a=>x>a[0]-r&&x<a[2]+r&&z>a[1]-r&&z<a[3]+r))return false;
  for(const [a,b]of glassBarriers){const dx=b[0]-a[0],dz=b[1]-a[1],t=clamp(((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz),0,1);if(Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz)<r)return false;}
  return true;
 }
@@ -1741,7 +1741,9 @@ function move(forward,side,amount=.35){
  if(isOrbit())return;if(dirty)rebuild();const c=camera();if(!walkPos)walkPos=[c.eye[0],c.eye[2]];
  const l=Math.hypot(c.forward[0],c.forward[2]),norm=Math.max(1,Math.hypot(forward,side));
  const dx=(forward*c.forward[0]/l+side*c.right[0])*amount/norm,dz=(forward*c.forward[2]/l+side*c.right[2])*amount/norm,n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.04));
- for(let i=0;i<n;i++){const x=walkPos[0],z=walkPos[1],xx=x+dx/n,zz=z+dz/n;if(canStand(xx,zz))walkPos=[xx,zz];else if(canStand(xx,z))walkPos=[xx,z];else if(canStand(x,zz))walkPos=[x,zz];}
+ // Standing inside something: let the step out rather than locking the walk up.
+ const loose=!canStand(walkPos[0],walkPos[1]),ok=(x,z)=>canStand(x,z,loose);
+ for(let i=0;i<n;i++){const x=walkPos[0],z=walkPos[1],xx=x+dx/n,zz=z+dz/n;if(ok(xx,zz))walkPos=[xx,zz];else if(ok(xx,z))walkPos=[xx,z];else if(ok(x,zz))walkPos=[x,zz];}
  render();
 }
 function camera(){
@@ -1918,7 +1920,7 @@ document.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.ad
 q('preset').addEventListener('change',()=>{let p=presets[q('preset').value];['wall','floor','counter','pattern'].forEach((n,i)=>q(n).value=p[i]);dirty=true;render();});
 ['wall','floor','counter','pattern','cut','open','elevator','entrance'].forEach(n=>q(n).addEventListener('input',()=>{dirty=true;render();}));
 ['fov','distance'].forEach(n=>q(n).addEventListener('input',render));q('mode').addEventListener('change',modeChange);
-q('position').addEventListener('change',()=>{q('mode').value='inside';modeChange();});
+q('position').addEventListener('change',()=>{q('mode').value='inside';roomView=null;walkPos=null;lookYaw=0;lookPitch=0;modeChange();});
 q('view').addEventListener('change',()=>{
   const labels=q('view').value==='1'?['受付前 → ガラス・街並み','入口 → エレベーター','入口 → 受付','廊下 → エレベーター','EV前 → 入口・受付']:['EV前 → 受付','EV前 → 受付','待合 → 診療室','待合 → エレベーター','受付前 → エレベーター'];
   q('entrance-label').hidden=q('view').value!=='1';
