@@ -1157,11 +1157,12 @@ html>body{padding:0}</style>
 <div id="clinic-walkthrough">
   <header id="clinic-topbar">
     <!-- The tabs drive these; the rest of the app reads its state from them. -->
-    <select id="clinic-view" hidden aria-hidden="true" tabindex="-1"><option value="1" selected>1F 全体</option><option value="2">2F 全体</option></select>
+    <select id="clinic-view" hidden aria-hidden="true" tabindex="-1"><option value="1" selected>1F 全体</option><option value="2">2F 全体</option><option value="0">旧1F 全体</option></select>
     <select id="clinic-mode" hidden aria-hidden="true" tabindex="-1"><option value="inside" selected>室内を歩く</option><option value="orbit">3D俯瞰・回転</option><option value="plan">平面図・家具編集</option></select>
     <div class="clinic-seg" id="clinic-floor-tabs" role="tablist" aria-label="フロア">
       <button type="button" role="tab" class="clinic-seg-btn" data-view="1" aria-selected="true">1F</button>
       <button type="button" role="tab" class="clinic-seg-btn" data-view="2" aria-selected="false">2F</button>
+      <button type="button" role="tab" class="clinic-seg-btn" data-view="0" aria-selected="false">旧1F</button>
     </div>
     <div class="clinic-seg" id="clinic-mode-tabs" role="tablist" aria-label="見方">
       <button type="button" role="tab" class="clinic-seg-btn" data-mode="inside" aria-selected="true">歩く</button>
@@ -1275,6 +1276,9 @@ let faces=[],glassFaces=[],outside=false,signs=[],W=736,H=460,lookYaw=0,lookPitc
 let solids=[],floorAreas=[],glassBarriers=[],walkPos=null,lastMode='';const keys=new Set();
 const isPlan=()=>q('mode').value==='plan';
 const isOrbit=()=>q('mode').value==='orbit',lowWalls=()=>isOrbit()&&q('cut').checked;
+// Both the current and the pre-renovation ground floor sit on the same chamfered corner.
+const chamfered=()=>q('view').value!=='2';
+const floorTag=()=>q('view').value==='0'?'old1F':q('view').value+'F';
 const color=id=>q(id).value;
 // Schemes taken from the reference clinic interiors: [wall, floor, counter front, floor pattern].
 const presets={
@@ -1293,7 +1297,7 @@ const presets={
 };
 function face(v,c,k=1){
 // Match the angled entrance edge when drawing the first-floor finish.
-if(!outside&&q('view').value==='1'&&v.every(p=>p[1]<.01)){
+if(!outside&&chamfered()&&v.every(p=>p[1]<.01)){
   let out=[];
   for(let i=0;i<v.length;i++){const a=v[i],b=v[(i+1)%v.length],da=a[0]-a[2]+10,db=b[0]-b[2]+10;
     if(da>=0)out.push(a);if((da>=0)!==(db>=0)){const t=da/(da-db);out.push(a.map((n,j)=>n+(b[j]-n)*t));}}
@@ -1361,6 +1365,12 @@ function beam(a,b,y,h,t,c='#87928f'){
  const p=[[a[0]+nx,y,a[1]+nz],[b[0]+nx,y,b[1]+nz],[b[0]-nx,y,b[1]-nz],[a[0]-nx,y,a[1]-nz]],v=p.map(p=>[p[0],y+h,p[2]]);
  for(let i=0;i<4;i++)face([p[i],p[(i+1)%4],v[(i+1)%4],v[i]],c,.93);face(v,c,1.04);
 }
+// Straight wall on an arbitrary bearing; solids are stepped along it so it still blocks walking.
+function diagWall(a,b,t=.14){
+ beam(a,b,0,lowWalls()?1.05:2.6,t,color('wall'));
+ const n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.16);
+ for(let i=0;i<n;i++){const u=(i+.5)/n,x=a[0]+(b[0]-a[0])*u,z=a[1]+(b[1]-a[1])*u,r=t/2+.02;solids.push([x-r,z-r,x+r,z+r]);}
+}
 function glassPanel(a,b,y,h){
  glassBarriers.push([a,b]);
  glassFaces.push({v:[[a[0],y,a[1]],[b[0],y,b[1]],[b[0],y+h,b[1]],[a[0],y+h,a[1]]],c:'#b9e0e4',k:1,alpha:.10});
@@ -1410,6 +1420,61 @@ function streetScene(){
  box(-3,.15,19.1,3.6,.62,1.55,'#c8d2d2');box(-2.25,.77,19.25,1.9,.58,1.25,'#9caeb4');
  for(const x of [-2.6,-.35]){box(x,.03,19,.38,.44,.20,'#535d5f');box(x,.03,20.5,.38,.44,.20,'#535d5f');}
  outside=false;
+}
+function scene0(){
+ // 旧1階（2008年・リフォーム前の平面図）。現1F・2Fと同じ 10.8 × 12.5 m グリッドに載る。
+ // 共用ホール・階段室・EVホール（300角タイル貼り）
+ floor(.10,.20,2.39,3.03);floor(.10,3.03,2.42,9.26);
+ floor(2.42,2.11,4.59,3.70);floor(2.42,3.70,3.25,4.06);floor(2.42,4.06,2.92,4.36);floor(2.42,4.36,2.66,4.66);
+ // 患者用WC。ホール側の隅は図面どおり斜めに切ってある。
+ floor(2.58,4.57,3.30,5.73);floor(3.30,4.26,4.05,5.73);floor(4.05,3.95,4.59,5.73);
+ // 中廊下（≒1,100）と診察室①の前室
+ floor(4.69,3.09,5.95,3.92);floor(4.69,4.02,5.95,5.88);
+ // 診察室①・検査室・スタッフルーム・職員用WC
+ floor(4.69,2.11,5.07,3.02);floor(5.07,.20,10.70,3.02);floor(6.05,3.12,8.74,5.17);
+ floor(8.84,3.12,10.70,7.14);floor(8.05,5.27,8.84,7.14);floor(9.86,5.89,10.70,7.14);
+ // 受付・待合室・待合から診察室へ抜ける廊下・風除室
+ floor(5.95,5.27,7.95,7.85);floor(2.58,5.83,5.85,9.83);floor(5.85,7.95,7.95,9.06);floor(2.58,9.93,6.15,11.57);
+ // 診察室③・診察室②（②は廊下側に食い込むL字）
+ floor(8.05,7.29,10.70,10.06);floor(6.30,9.16,8.05,10.16);floor(6.30,10.16,10.70,12.40);
+ // 2階の張り出しの下、タイル敷きの外部アプローチ
+ floor(.10,9.36,2.58,12.40);floor(2.58,11.67,6.15,12.40);
+
+ // 外周。西側の扉は現1Fと同じ位置に残っている。
+ wallX(.10,0,10.70);wallZ(0,.10,10.00,[[2.80,1.19,'hinge',1]]);wall(10.70,.10,.10,12.30);wall(6.15,12.40,4.65,.10);
+ // 折返し階段：東側の上り→北の踊り場→西側へ折り返す。中央は手すり壁。
+ wall(2.39,.20,.16,2.83);
+ for(let i=0;i<8;i++)box(1.31,i*.19,3.03-(i+1)*.2525,1.08,.19,.2525,'#d5d3cc');
+ box(.11,0,.20,2.28,1.52,.80,'#d5d3cc');
+ for(let i=0;i<3;i++)box(.11,1.52+i*.19,1.00+i*.2525,1.08,.19,.2525,'#d5d3cc');
+ box(1.19,0,1.00,.12,lowWalls()?1.05:1.15,2.00,'#d5d3cc');
+ elevator();wall(4.59,.20,.48,1.91);wall(4.59,2.11,.10,1.59);
+ // ホールと待合室を仕切る壁、および共用玄関の引戸
+ wall(2.42,4.66,.16,7.01);wallX(9.26,.10,2.42,[[1.39,1.03,'slide']]);
+ // 患者用WC
+ diagWall([2.58,4.57],[4.59,3.70]);
+ wallZ(4.59,3.70,5.88,[[4.59,.68,'hinge',-1]]);wallX(5.73,2.58,4.69);
+ // 診察室①の前室（廊下から二枚の開き戸で入る）
+ wallX(2.99,4.69,5.95,[[4.69,.78,'hinge',-1]]);wallX(3.92,4.69,5.95,[[4.79,.91,'hinge',-1]]);wall(5.85,3.02,.10,.68);
+ // 診察室①／検査室・スタッフルーム
+ wallX(3.02,5.85,10.70,[[8.88,.78,'hinge',-1]]);
+ wallZ(5.95,3.12,5.27,[[4.25,.88,'hinge',1]]);wallX(5.17,6.05,8.84);wall(8.74,3.12,.10,2.05);
+ wallX(5.79,9.76,10.70);wallZ(9.76,5.89,7.14,[[6.47,.63,'hinge',-1]]);
+ // 受付。待合側はパイプシャッター付きのカウンター。
+ wall(7.95,5.27,.10,2.66);wallX(7.85,5.85,7.95,[[6.21,.82,'slide']]);
+ box(5.85,0,5.27,.30,.95,2.36,color('counter'));box(5.80,.95,5.22,.40,.06,2.46,'#f3f0e9');
+ if(!lowWalls())box(5.85,1.98,5.27,.30,.62,2.36,color('wall'));
+ if(!lowWalls())for(let z=5.32;z<7.58;z+=.11)box(5.94,1.05,z,.12,.93,.03,'#9aa2a0');
+ // 診察室③・診察室②
+ wallX(7.19,7.95,10.70,[[8.63,.82,'slide']]);wallZ(7.95,7.95,10.06,[[8.11,.78,'hinge',-1]]);wallX(10.06,8.05,10.70);
+ wallX(9.06,6.30,7.95,[[6.33,.78,'hinge',1]]);wall(6.15,9.06,.15,3.01);
+ // 風除室（内外とも自動引戸）
+ wallX(9.83,2.58,6.15,[[3.85,.90,'slide']]);wallX(11.57,2.58,6.15,[[3.77,1.06,'slide']]);
+ pillars();post(2.69,12.18,.40);pillar(6.33,12.12,.30);
+ if(!isOrbit()&&!isPlan()){
+   face([[0,2.6,.1],[10.8,2.6,.1],[10.8,2.6,12.4],[2.5,2.6,12.4],[0,2.6,10]],'#f2f0e9');
+   streetScene();
+ }
 }
 function scene1(){
  // Public route from the chamfered entrance through the 1.3 m corridor to the EV hall.
@@ -1509,10 +1574,12 @@ function fullFloor2(){
 let roomView=null;
 const roomLabels={
  '1':[[8.9,5.95,'MRI室'],[6.0,.9,'機械室（サブ）'],[3.5,3.0,'EVホール'],[1.2,4.15,'階段ホール'],[1.1,6.3,'WC(P)'],[4.6,5.43,'診察室2'],[4.6,7.7,'診察室1'],[6.64,5.75,'裏'],[5.15,9.08,'受付'],[3.5,10.5,'待合'],[8.0,8.4,'検査室'],[9.9,8.4,'操作'],[9.9,9.4,'WC(S)'],[9.65,10.8,'X線室'],[7.26,11.55,'更衣1'],[8.12,11.55,'更衣2']],
+ '0':[[1.4,2.1,'階段室'],[3.5,2.65,'EVホール'],[1.2,6.6,'ホール'],[3.3,5.2,'WC(P)'],[7.9,1.7,'診察室①'],[7.3,4.3,'検査室'],[9.7,4.4,'スタッフ'],[10.2,6.7,'WC(S)'],[6.9,6.7,'受付'],[4.1,7.9,'待合室'],[5.3,3.6,'前室'],[9.3,8.8,'診察室③'],[8.6,11.4,'診察室②'],[4.3,10.8,'風除室'],[1.3,11.2,'アプローチ']],
  '2':[[1.2,4.1,'階段'],[3.4,3.5,'EVホール'],[7.3,1.7,'機械室'],[5.6,3.65,'WC(P)'],[10.22,3.65,'WC(S)'],[3.55,5.5,'待合'],[1.22,5.5,'心療内科'],[3.35,6.9,'受付'],[3.45,9.3,'裏1'],[5.6,8.7,'診療室1'],[7.6,8.7,'診療室2'],[9.8,6.5,'スタッフ'],[9.8,9.2,'更衣室'],[6.8,11.5,'処置スペース'],[9.8,11.7,'裏2'],[3.5,11.1,'吹抜け']]
 };
 const roomStops={
  '1':[['待合',3.1,10.4],['受付内',6.5,8.9],['診察室1',3.98,7.42],['診察室2',4.1,5.3],['バックヤード（診察室裏）',6.75,5.85],['検査室',8.1,8.5],['MRI室',9.8,5.6,8.8,2.8],['操作スペース',9.55,8.3],['エックス線室',8.98,9.85,9.8,11.6],['更衣1',7.25,11.7],['更衣2',8.12,11.7],['患者用WC',1.5,5.6],['職員用WC',9.45,9.2],['機械室（サブ）',5.5,1.0],['EVホール',3.5,3.1],['階段ホール',1.8,3.8]],
+ '0':[['待合室',3.6,8.9,5.9,6.4],['受付内',6.6,7.3,7.4,5.4],['診察室①',6.0,2.5,8.2,.9],['検査室',7.3,4.4],['診察室②',7.6,11.2,9.2,11.4],['診察室③',9.0,8.9],['スタッフルーム',9.6,4.4],['患者用WC',3.4,5.2],['職員用WC',10.25,6.5],['前室',5.3,3.5],['中廊下',5.3,4.9],['風除室',4.3,10.7],['EVホール',3.5,2.6],['共用ホール',1.3,6.6],['階段室前',1.6,3.4],['玄関アプローチ',1.6,10.6]],
  '2':[['待合',3.5,5],['心療内科診察室',1.9,5.5],['心療内科受付',4.1,7],['診療室1',5.65,8.35],['診療室2',8.2,7],['処置スペース',6,11],['スタッフルーム',9.5,6.8],['更衣室',9.5,9.3],['バックヤード1',3.4,9],['バックヤード2',9.4,11.5],['機械室',8.8,2.2],['患者用WC',5.1,3.3],['職員用WC',10.3,3.5],['EVホール',3.5,3.1],['階段ホール',1.8,3.8]]
 };
 function refreshRooms(){const first=document.createElement('option');first.value='';first.textContent='部屋を選択';q('room').replaceChildren(first,...roomStops[q('view').value].map((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r[0];return o;}));q('room').value='';}
@@ -1521,6 +1588,23 @@ q('room').addEventListener('change',()=>{if(q('room').value==='')return;const r=
 let architectureSolids=[],selected=0,planScale=35,planOx=20,planOy=20;
 const make=(name,type,x,z,w,d,h,r=0,source='仮寸法')=>({name,type,x,z,w,d,h,r,source});
 let layouts={
+ '0':[
+ make('診察室①机','desk',7.42,.30,.78,1.50,.75,0,'図面の 1,500 × 800 mm'),make('診察室①医師椅子','chair',8.34,1.10,.50,.50,.85,270),
+ make('診察室①患者椅子1','chair',6.85,.58,.52,.52,.85,90),make('診察室①患者椅子2','chair',6.85,1.18,.52,.52,.85,90),
+ make('検査室 診察ベッド','bed',6.05,3.22,1.90,.60,.60,0,'図面の 1,900 × 600 mm'),make('検査室 収納','cabinet',7.98,3.20,.75,.55,.85,0,'図面の 750 × 550 mm'),make('検査室 椅子','chair',8.10,3.90,.50,.50,.85),
+ make('受付椅子1','chair',7.00,5.55,.50,.50,.85,90),make('受付椅子2','chair',7.00,7.05,.50,.50,.85,90),make('受付作業机','desk',7.35,5.90,.55,1.05,.75),
+ make('スタッフ流し台','sink',8.06,5.30,.42,1.15,.80,0,'図面の W=1,200'),make('スタッフ冷蔵庫','cabinet',8.06,6.45,.50,.62,1.40),
+ make('スタッフ丸椅子1','stool',9.78,3.46,.45,.45,.48),make('スタッフ丸椅子2','stool',9.78,4.63,.45,.45,.48),
+ make('スタッフ棚1','cabinet',10.25,3.20,.45,1.05,1.60,0,'図面の「棚」／寸法は概算'),make('スタッフ棚2','cabinet',10.25,4.55,.45,1.05,1.60,0,'図面の「棚」／寸法は概算'),
+ make('職員用便器','toilet',10.25,5.95,.45,.72,.78),make('職員用洗面台','sink',10.25,6.80,.45,.28,.80,180),
+ make('患者用便器','toilet',2.72,4.98,.45,.72,.78),make('WC洗面台','sink',3.68,5.22,.72,.45,.80,0,'図面の手洗い位置'),make('WC小便器','urinal',3.98,4.12,.35,.35,1.00),
+ make('待合ベンチ 1','bench',2.60,6.45,1.72,.72,.94,270,'図面の W700 × D720 連結ベンチ'),make('待合ベンチ 2','bench',2.60,8.25,1.55,.72,.94,270,'図面の W700 × D720 連結ベンチ'),
+ make('マガジンラック','cabinet',5.87,9.10,.28,.68,1.30,0,'図面の「マガジンラック」'),make('郵便受け','cabinet',.12,8.20,.20,.72,1.60,0,'図面の「郵便受け」'),
+ make('診察室③机','desk',9.62,7.67,.67,.72,.75,0,'図面の W700 × D720'),make('診察室③椅子','chair',8.90,7.75,.50,.50,.85,90),
+ make('診察室③収納','cabinet',8.60,8.56,1.00,.45,.85,0,'図面の 1,000 × 450'),make('診察室③診察台','bed',8.55,9.05,1.80,.72,.60,0,'図面の W1,800 × D720'),
+ make('診察室②机','desk',8.09,10.72,.78,1.50,.75,0,'図面の 1,500 × 800 mm'),make('診察室②医師椅子','chair',9.05,11.20,.50,.50,.85,270),
+ make('診察室②患者椅子1','chair',7.48,10.82,.52,.52,.85,90),make('診察室②患者椅子2','chair',7.48,11.42,.52,.52,.85,90)
+ ],
  '1':[
  make('診察机 2','desk',3.80,3.74,2.22,.67,.75,0,'図面の机位置・向きを再照合／外形は図面から概算'),make('診察机 1','desk',3.80,5.76,2.22,.67,.75,0,'図面の机位置・向きを再照合／外形は図面から概算'),
  make('診察室2 医師椅子','chair',4.65,4.52,.48,.48,.85),make('診察室1 医師椅子','chair',4.65,6.50,.48,.48,.85),
@@ -1618,7 +1702,7 @@ function overlap(a,b){return a[0]<b[2]&&a[2]>b[0]&&a[1]<b[3]&&a[3]>b[1];}
 function editChanged(){
  dirty=true;walkPos=null;keys.clear();syncFields();rebuild();
  const f=items()[selected],b=bounds(f),conflict=architectureSolids.some(a=>overlap(a,b))||items().some((o,i)=>i!==selected&&overlap(bounds(o),b));
- const out=![[b[0],b[1]],[b[2],b[1]],[b[0],b[3]],[b[2],b[3]]].every(([x,z])=>floorAreas.some(a=>x>=a[0]&&x<=a[2]&&z>=a[1]&&z<=a[3])&&(q('view').value!=='1'||x-z+10>=0));
+ const out=![[b[0],b[1]],[b[2],b[1]],[b[0],b[3]],[b[2],b[3]]].every(([x,z])=>floorAreas.some(a=>x>=a[0]&&x<=a[2]&&z>=a[1]&&z<=a[3])&&(!chamfered()||x-z+10>=0));
  q('item-info').textContent+=out?' ｜ 床の外にはみ出しています':conflict?' ｜ 壁・家具と重なっています':'';render();
 }
 function drawPlan(){
@@ -1629,7 +1713,7 @@ function drawPlan(){
  c.fillStyle=bg;c.fillRect(0,0,width,height);
  planScale=Math.min((width-40)/11.2,(height-60)/12.7);planOx=(width-10.8*planScale)/2;planOy=Math.max(22,(height-12.5*planScale)/2);
  const X=x=>planOx+x*planScale,Y=z=>planOy+z*planScale;
- c.save();if(q('view').value==='1'){c.beginPath();c.moveTo(X(0),Y(0));c.lineTo(X(10.8),Y(0));c.lineTo(X(10.8),Y(13));c.lineTo(X(3),Y(13));c.lineTo(X(0),Y(10));c.closePath();c.clip();}
+ c.save();if(chamfered()){c.beginPath();c.moveTo(X(0),Y(0));c.lineTo(X(10.8),Y(0));c.lineTo(X(10.8),Y(13));c.lineTo(X(3),Y(13));c.lineTo(X(0),Y(10));c.closePath();c.clip();}
  c.fillStyle=color('floor');for(const a of floorAreas)c.fillRect(X(a[0]),Y(a[1]),(a[2]-a[0])*planScale,(a[3]-a[1])*planScale);c.restore();
  c.strokeStyle=ink;c.globalAlpha=.14;c.lineWidth=.5;
  for(let x=0;x<=10.8;x++){c.beginPath();c.moveTo(X(x),Y(0));c.lineTo(X(x),Y(12.5));c.stroke();}
@@ -1647,7 +1731,7 @@ function drawPlan(){
  c.fillStyle=ink;c.font='12px sans-serif';c.textAlign='center';c.fillText('EV',X(3.55),Y(1.25));
  const rooms=roomLabels[q('view').value];
  for(const [x,z,t]of rooms){const tw=c.measureText(t).width;c.fillStyle=bg;c.globalAlpha=.86;c.fillRect(X(x)-tw/2-2,Y(z)-11,tw+4,15);c.globalAlpha=1;c.fillStyle=ink;c.fillText(t,X(x),Y(z));}
- c.textAlign='left';c.fillText('両階全体の概略平面図・方眼 1 m',12,16);c.textAlign='right';c.fillText('1 m',width-14,height-10);c.strokeStyle=ink;c.lineWidth=2;c.beginPath();c.moveTo(width-14-planScale,height-24);c.lineTo(width-14,height-24);c.stroke();
+ c.textAlign='left';c.fillText('各フロアの概略平面図・方眼 1 m',12,16);c.textAlign='right';c.fillText('1 m',width-14,height-10);c.strokeStyle=ink;c.lineWidth=2;c.beginPath();c.moveTo(width-14-planScale,height-24);c.lineTo(width-14,height-24);c.stroke();
 }
 q('item').addEventListener('change',()=>{selected=Number(q('item').value);syncFields();render();});
 for(const k of ['x','z','w','d','h'])q(k).addEventListener('change',()=>{
@@ -1664,11 +1748,11 @@ q('plan').addEventListener('pointerdown',e=>{
 });
 q('plan').addEventListener('pointermove',e=>{if(!dragItem)return;const [x,z]=planPoint(e),f=items()[selected];f.x=Math.round(clamp(x-dragItem.dx,0,10.8)*100)/100;f.z=Math.round(clamp(z-dragItem.dz,0,12.5)*100)/100;editChanged();});
 for(const ev of ['pointerup','pointercancel','lostpointercapture'])q('plan').addEventListener(ev,()=>dragItem=null);
-q('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'clinic-layout-full-v6',layouts},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='clinic-layout.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+q('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'clinic-layout-full-v7',layouts},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='clinic-layout.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 q('load').addEventListener('change',async()=>{
  try{
-  const file=q('load').files[0];if(!file)return;if(file.size>1000000)throw Error();const data=JSON.parse(await file.text());if(data.format!=='clinic-layout-full-v6')throw Error();
-  const next={};for(const level of ['1','2']){const ar=data.layouts[level];if(!Array.isArray(ar)||ar.length!==layouts[level].length)throw Error();next[level]=ar.map((f,i)=>{
+  const file=q('load').files[0];if(!file)return;if(file.size>1000000)throw Error();const data=JSON.parse(await file.text());if(data.format!=='clinic-layout-full-v7')throw Error();
+  const next={};for(const level of ['0','1','2']){const ar=data.layouts[level];if(!Array.isArray(ar)||ar.length!==layouts[level].length)throw Error();next[level]=ar.map((f,i)=>{
    if(f.type!==layouts[level][i].type||!['x','z','w','d','h'].every(k=>Number.isFinite(f[k]))||f.x<0||f.x>10.8||f.z<0||f.z>12.5||f.w<.2||f.w>5||f.d<.2||f.d>5||f.h<.2||f.h>2.4||!Number.isInteger(f.r)||f.r<0||f.r>359)throw Error();
    return {...layouts[level][i],...Object.fromEntries(['x','z','w','d','h','r'].map(k=>[k,f[k]])),source:'読み込み値（図面寸法との再照合が必要）'};
   });}layouts=next;refreshItems();editChanged();
@@ -1721,7 +1805,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function shadowRects(){const a=items().map(bounds).slice(0,8);while(a.length<8)a.push([99,99,99,99]);return a;}
 function canStand(x,z,ignoreSolids){
  const r=.13;
- if(q('view').value==='1'&&x-z+10<r)return false;
+ if(chamfered()&&x-z+10<r)return false;
  if(!floorAreas.some(a=>x>=a[0]&&x<=a[2]&&z>=a[1]&&z<=a[3]))return false;
  if(!ignoreSolids&&solids.some(a=>x>a[0]-r&&x<a[2]+r&&z>a[1]-r&&z<a[3]+r))return false;
  for(const [a,b]of glassBarriers){const dx=b[0]-a[0],dz=b[1]-a[1],t=clamp(((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz),0,1);if(Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz)<r)return false;}
@@ -1743,7 +1827,13 @@ function camera(){
     const d=Number(q('distance').value);eye=[target[0]+d*Math.sin(azimuth)*Math.cos(elevation),target[1]+d*Math.sin(elevation),target[2]+d*Math.cos(azimuth)*Math.cos(elevation)];
     yaw=Math.atan2(target[0]-eye[0],target[2]-eye[2]);pitch=-elevation;
   }else{
-    const presets=fl?{
+    const presets=q('view').value==='0'?{
+      street:[[4.30,1.55,10.70],[4.30,1.50,15.20]],
+      ev:[[1.55,1.55,8.20],[3.50,1.50,2.60]],
+      reception:[[4.30,1.55,7.90],[6.10,1.32,6.50]],
+      hall:[[1.30,1.55,6.60],[1.60,1.50,2.20]],
+      reverse:[[3.55,1.55,3.30],[1.40,1.50,7.60]]
+    }:fl?{
       street:[[4.60,1.55,10.05],[2.60,1.50,14.90]],
       ev:[[1.65,1.55,10.98],[3.55,1.50,2.05]],
       reception:[[1.65,1.55,10.98],[4.50,1.28,8.6]],
@@ -1789,22 +1879,22 @@ function exportGLB(){
   const ac={bufferView:vi,componentType:5126,count:ar.length/3,type:'VEC3'};if(position){ac.min=[Infinity,Infinity,Infinity];ac.max=[-Infinity,-Infinity,-Infinity];for(let i=0;i<ar.length;i++){let k=i%3;ac.min[k]=Math.min(ac.min[k],data[i]);ac.max[k]=Math.max(ac.max[k],data[i]);}}accessors.push(ac);return accessors.length-1;}
  const meshes=[],nodes=[];for(const g of groups.values()){if(!g.p.length)continue;const mesh=meshes.length;meshes.push({name:materials[g.material].name,primitives:[{attributes:{POSITION:attr(g.p,true),NORMAL:attr(g.n,false)},material:g.material,mode:4}]});nodes.push({name:materials[g.material].name,mesh});}
  const camIndex=nodes.length;nodes.push({name:'Clinic_View',camera:0,matrix:[...c.right,0,...c.up,0,...c.forward.map(v=>-v),0,...c.eye,1]});
- const doc={asset:{version:'2.0',generator:'Clinic layout simulator'},scene:0,scenes:[{name:'Clinic_'+q('view').value+'F',nodes:nodes.map((_,i)=>i)}],nodes,meshes,materials,buffers:[{byteLength:offset}],bufferViews:views,accessors,cameras:[{name:'Clinic_View',type:'perspective',perspective:{yfov:2*Math.atan(1/c.fy),aspectRatio:W/H,znear:.05,zfar:100}}],extras:{floor:q('view').value,units:'metres',renderWidth:W,renderHeight:H,cameraNode:camIndex,model:'Approximate plan model; procedural textures and lighting not baked'}};
+ const doc={asset:{version:'2.0',generator:'Clinic layout simulator'},scene:0,scenes:[{name:'Clinic_'+floorTag(),nodes:nodes.map((_,i)=>i)}],nodes,meshes,materials,buffers:[{byteLength:offset}],bufferViews:views,accessors,cameras:[{name:'Clinic_View',type:'perspective',perspective:{yfov:2*Math.atan(1/c.fy),aspectRatio:W/H,znear:.05,zfar:100}}],extras:{floor:q('view').value,units:'metres',renderWidth:W,renderHeight:H,cameraNode:camIndex,model:'Approximate plan model; procedural textures and lighting not baked'}};
  const encoded=new TextEncoder().encode(JSON.stringify(doc)),jsonLen=Math.ceil(encoded.length/4)*4,binLen=Math.ceil(offset/4)*4,total=12+8+jsonLen+8+binLen,out=new ArrayBuffer(total),dv=new DataView(out),bytes=new Uint8Array(out);
  dv.setUint32(0,0x46546c67,true);dv.setUint32(4,2,true);dv.setUint32(8,total,true);dv.setUint32(12,jsonLen,true);dv.setUint32(16,0x4e4f534a,true);bytes.fill(32,20,20+jsonLen);bytes.set(encoded,20);const bh=20+jsonLen;dv.setUint32(bh,binLen,true);dv.setUint32(bh+4,0x004e4942,true);let at=bh+8;for(const chunk of chunks){bytes.set(chunk,at);at+=chunk.length;}return out;
 }
-q('export').addEventListener('click',()=>{try{downloadFile(exportGLB(),'clinic-'+q('view').value+'F-view.glb','model/gltf-binary');q('export-info').textContent='GLBを出力しました。Blenderで読み込み、同じ視点の設定スクリプトを実行できます。';}catch(e){q('export-info').textContent=e.message;}});
+q('export').addEventListener('click',()=>{try{downloadFile(exportGLB(),'clinic-'+floorTag()+'-view.glb','model/gltf-binary');q('export-info').textContent='GLBを出力しました。Blenderで読み込み、同じ視点の設定スクリプトを実行できます。';}catch(e){q('export-info').textContent=e.message;}});
 q('blender').addEventListener('click',()=>{
  if(isPlan()){q('export-info').textContent='先に室内または3D俯瞰で視点を決めてください。';return;}
- const rw=2000,rh=Math.round(rw*H/W),level=q('view').value;
+ const rw=2000,rh=Math.round(rw*H/W),level=floorTag();
  const lamps=level==='1'?[[3.2,10],[4.8,8.6],[4.8,4.8],[4.8,6.8],[8.6,3],[8,8],[9.6,10.5],[3.5,3]]:[[3.5,4.7],[1.4,6.6],[5.7,7.6],[7.8,7.6],[9.6,6],[7,11],[7.8,2]];
- const py=`# Import the matching GLB first. Run this in Blender's Scripting workspace.\nimport bpy\nscene = bpy.context.scene\ncams = [o for o in scene.objects if o.type == 'CAMERA' and o.name.startswith('Clinic_View')]\nif not cams:\n    raise RuntimeError('Import clinic-${level}F-view.glb first')\nscene.camera = cams[-1]\nscene.render.resolution_x = ${rw}\nscene.render.resolution_y = ${rh}\nscene.render.resolution_percentage = 100\nscene.render.pixel_aspect_x = 1\nscene.render.pixel_aspect_y = 1\nscene.camera.data.sensor_fit = 'VERTICAL'\nscene.camera.data.angle_y = ${2*Math.atan(1/camera().fy)}\nscene.render.engine = 'CYCLES'\nscene.cycles.samples = 128\nscene.cycles.use_denoising = True\nif scene.world is None:\n    scene.world = bpy.data.worlds.new('Clinic_World')\nscene.world.use_nodes = True\nscene.world.node_tree.nodes.get('Background').inputs['Strength'].default_value = 0.35\nfor obj in list(scene.objects):\n    if obj.type == 'LIGHT' and obj.name.startswith('Clinic_Light_'):\n        bpy.data.objects.remove(obj, do_unlink=True)\nfor i, (x, z) in enumerate(${JSON.stringify(lamps)}):\n    data = bpy.data.lights.new('Clinic_Light_'+str(i), 'AREA')\n    data.energy = 180\n    data.shape = 'DISK'\n    data.size = 1.4\n    obj = bpy.data.objects.new(data.name, data)\n    scene.collection.objects.link(obj)\n    obj.location = (x, -z, 2.45)\nscene.render.image_settings.file_format = 'PNG'\n# Press Numpad 0 for camera view; F12 to render. Lighting is a starting point.\n`;
- downloadFile(py,'clinic-'+level+'F-render-setup.py','text/x-python');q('export-info').textContent='対応するGLBをBlenderに読み込み、この設定を実行してください。出力比率・カメラ・仮照明を設定します。';
+ const py=`# Import the matching GLB first. Run this in Blender's Scripting workspace.\nimport bpy\nscene = bpy.context.scene\ncams = [o for o in scene.objects if o.type == 'CAMERA' and o.name.startswith('Clinic_View')]\nif not cams:\n    raise RuntimeError('Import clinic-${level}-view.glb first')\nscene.camera = cams[-1]\nscene.render.resolution_x = ${rw}\nscene.render.resolution_y = ${rh}\nscene.render.resolution_percentage = 100\nscene.render.pixel_aspect_x = 1\nscene.render.pixel_aspect_y = 1\nscene.camera.data.sensor_fit = 'VERTICAL'\nscene.camera.data.angle_y = ${2*Math.atan(1/camera().fy)}\nscene.render.engine = 'CYCLES'\nscene.cycles.samples = 128\nscene.cycles.use_denoising = True\nif scene.world is None:\n    scene.world = bpy.data.worlds.new('Clinic_World')\nscene.world.use_nodes = True\nscene.world.node_tree.nodes.get('Background').inputs['Strength'].default_value = 0.35\nfor obj in list(scene.objects):\n    if obj.type == 'LIGHT' and obj.name.startswith('Clinic_Light_'):\n        bpy.data.objects.remove(obj, do_unlink=True)\nfor i, (x, z) in enumerate(${JSON.stringify(lamps)}):\n    data = bpy.data.lights.new('Clinic_Light_'+str(i), 'AREA')\n    data.energy = 180\n    data.shape = 'DISK'\n    data.size = 1.4\n    obj = bpy.data.objects.new(data.name, data)\n    scene.collection.objects.link(obj)\n    obj.location = (x, -z, 2.45)\nscene.render.image_settings.file_format = 'PNG'\n# Press Numpad 0 for camera view; F12 to render. Lighting is a starting point.\n`;
+ downloadFile(py,'clinic-'+level+'-render-setup.py','text/x-python');q('export-info').textContent='対応するGLBをBlenderに読み込み、この設定を実行してください。出力比率・カメラ・仮照明を設定します。';
 });
 
 function encode(fs){const data=[];for(const f of fs){const h=f.c.slice(1),rgb=[0,2,4].map(i=>clamp(parseInt(h.slice(i,i+2),16)/255*f.k,0,1));for(let i=1;i<f.v.length-1;i++)for(const p of [f.v[0],f.v[i],f.v[i+1]])data.push(...p,...rgb,f.mat||0);}return data;}
 function rebuild(){
-  faces=[];glassFaces=[];signs=[];solids=[];floorAreas=[];glassBarriers=[];q('view').value==='1'?scene1():scene2();architectureSolids=solids.slice();renderFurniture();
+  faces=[];glassFaces=[];signs=[];solids=[];floorAreas=[];glassBarriers=[];({'0':scene0,'1':scene1,'2':scene2})[q('view').value]();architectureSolids=solids.slice();renderFurniture();
   if(gl){const data=encode(faces);count=data.length/7;gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data.concat(encode(glassFaces))),gl.DYNAMIC_DRAW);}
   dirty=false;
 }
@@ -1813,7 +1903,7 @@ function draw(){
   if(canvas.width!==Math.round(W*ratio)||canvas.height!==Math.round(H*ratio)){canvas.width=Math.round(W*ratio);canvas.height=Math.round(H*ratio);}
   if(dirty)rebuild();if(isPlan()){drawPlan();return;}const c=camera();
   if(gl){
-    gl.viewport(0,0,canvas.width,canvas.height);q('view').value==='1'&&!isOrbit()?gl.clearColor(.78,.87,.92,1):gl.clearColor(.947,.944,.926,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(program);
+    gl.viewport(0,0,canvas.width,canvas.height);chamfered()&&!isOrbit()?gl.clearColor(.78,.87,.92,1):gl.clearColor(.947,.944,.926,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(program);
     for(const [u,v]of [['eye',c.eye],['right',c.right],['up',c.up],['forward',c.forward]])gl.uniform3fv(gl.getUniformLocation(program,u),v);
     gl.uniform1f(gl.getUniformLocation(program,'floorStyle'),{wood:0,tile:1,plain:2}[q('pattern').value]);gl.uniform4fv(gl.getUniformLocation(program,'occluders[0]'),new Float32Array(shadowRects().flat()));gl.uniform2f(gl.getUniformLocation(program,'scale'),c.fx,c.fy);gl.uniform1f(gl.getUniformLocation(program,'opacity'),1);gl.drawArrays(gl.TRIANGLES,0,count);
     if(glassFaces.length){
@@ -1823,7 +1913,7 @@ function draw(){
     }
   }else{
     // Depth-buffered software renderer for browsers without WebGL.
-    const iw=canvas.width,ih=canvas.height,img=ctx.createImageData(iw,ih),pixels=img.data,depth=new Float32Array(iw*ih),stamps=new Uint16Array(iw*ih),sky=q('view').value==='1'&&!isOrbit()?[199,222,235]:[242,241,236];
+    const iw=canvas.width,ih=canvas.height,img=ctx.createImageData(iw,ih),pixels=img.data,depth=new Float32Array(iw*ih),stamps=new Uint16Array(iw*ih),sky=chamfered()&&!isOrbit()?[199,222,235]:[242,241,236];
     for(let i=0;i<pixels.length;i+=4){pixels[i]=sky[0];pixels[i+1]=sky[1];pixels[i+2]=sky[2];pixels[i+3]=255;}
     const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0),cam=p=>{let v=p.map((a,i)=>a-c.eye[i]);return[dot(v,c.right),dot(v,c.up),dot(v,c.forward)];},proj=p=>[iw/2+iw/2*c.fx*p[0]/p[2],ih/2-ih/2*c.fy*p[1]/p[2],1/p[2]];
     const shadows=shadowRects(),woodFloor=q('pattern').value==='wood';
@@ -1855,7 +1945,7 @@ function draw(){
   q('location').textContent=isOrbit()?'':`位置 ${c.eye[0].toFixed(1)}m / ${c.eye[2].toFixed(1)}m`;
 }
 function render(){if(!frameQueued){frameQueued=true;requestAnimationFrame(draw);}}
-function reset(){roomView=null;walkPos=null;keys.clear();lookYaw=0;lookPitch=0;pan=[0,0];azimuth=q('view').value==='1'?-.65:2.5;
+function reset(){roomView=null;walkPos=null;keys.clear();lookYaw=0;lookPitch=0;pan=[0,0];azimuth=chamfered()?-.65:2.5;
  // A tall screen suits a more top-down angle; frame the whole floor either way.
  elevation=W>=H?.85:1.12;
  const half=(12.5*Math.cos(elevation)+2.6*Math.sin(elevation))/2,tv=Math.tan(24*Math.PI/180);
@@ -1912,7 +2002,9 @@ q('preset').addEventListener('change',()=>{let p=presets[q('preset').value];['wa
 ['fov','distance'].forEach(n=>q(n).addEventListener('input',render));q('mode').addEventListener('change',modeChange);
 q('position').addEventListener('change',()=>{q('mode').value='inside';roomView=null;walkPos=null;lookYaw=0;lookPitch=0;modeChange();});
 q('view').addEventListener('change',()=>{
-  const labels=q('view').value==='1'?['受付前 → ガラス・街並み','入口 → エレベーター','入口 → 受付','廊下 → エレベーター','EV前 → 入口・受付']:['EV前 → 受付','EV前 → 受付','待合 → 診療室','待合 → エレベーター','受付前 → エレベーター'];
+  const labels=q('view').value==='0'?['風除室 → 外・街並み','共用ホール → エレベーター','待合室 → 受付','ホール → 階段室','EV前 → ホール奥']
+   :q('view').value==='1'?['受付前 → ガラス・街並み','入口 → エレベーター','入口 → 受付','廊下 → エレベーター','EV前 → 入口・受付']
+   :['EV前 → 受付','EV前 → 受付','待合 → 診療室','待合 → エレベーター','受付前 → エレベーター'];
   q('entrance-label').hidden=q('view').value!=='1';
   Array.from(q('position').options).forEach((o,i)=>o.textContent=labels[i]);refreshItems();refreshRooms();dirty=true;reset();
 });
