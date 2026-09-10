@@ -32,6 +32,10 @@
   * 仕切り壁は**面ごと**に仕上がるので、待合側だけ色を変える、といった指定ができます。
   * 「この部屋を全体設定に戻す」「このフロアを全部戻す」で解除します。
   * 個別指定は「配置を保存（JSON）」に一緒に入ります。
+* **設定の受け渡し** — 「変更点をコピー」で、**既定値と違うところだけ**を短い文字列にして
+  クリップボードにコピーします。それをチャットに貼り付ければ、Claudeが既定値として
+  取り込みます（下の「作った内容を既定値にする」を参照）。逆にこの欄に文字列を貼って
+  「この欄の内容を反映」を押せば、その設定をその場で再現できます。
 
 ## 公開する（GitHub Pages）
 
@@ -98,11 +102,30 @@ python3 tools/apply-pwa-patch.py src/clinicwalkthrough.html   # index.html を�
 | `index.html` | 実際に配信されるアプリ（`src/` から生成） |
 | `src/clinicwalkthrough.html` | アプリ本体（**編集するのはこのファイル**） |
 | `tools/apply-pwa-patch.py` | 本体から `index.html` を作るスクリプト |
+| `tools/apply-settings.py` | アプリから書き出した設定を既定値として取り込むスクリプト |
 | `docs/図面照合メモ.md` | 設計図と突き合わせて直した内容の記録 |
 | `manifest.webmanifest` | アプリ名・アイコン・全画面表示などの設定 |
 | `sw.js` | オフライン用の Service Worker |
 | `icons/` | ホーム画面アイコン |
 | `.github/workflows/deploy-pages.yml` | GitHub Pages への自動デプロイ |
+
+## 作った内容を既定値にする
+
+アプリで色や家具を調整したら、そのまま次を開いた人にも見えるように取り込めます。
+
+1. アプリの設定パネル → **設定の受け渡し** → 「変更点をコピー」
+2. その文字列をチャットに貼り付ける（既定値と違うところだけなので数百文字程度です）
+3. Claude 側で取り込む：
+
+   ```
+   python3 tools/apply-settings.py state.json     # ファイルから
+   pbpaste | python3 tools/apply-settings.py -    # クリップボードから
+   python3 tools/apply-settings.py --clear        # 既定値に戻す
+   ```
+
+`src/clinicwalkthrough.html` の `const savedState={...};` の 1 行だけが書き換わり、
+`index.html` も同時に作り直されます。図面から起こした元の数値はファイルに残ったままなので、
+`--clear` でいつでも図面どおりに戻せます。
 
 ## メモ
 

@@ -1140,6 +1140,7 @@ html>body{padding:0}</style>
 .clinic-colors{display:flex;gap:10px;flex-wrap:wrap}
 .clinic-colors .clinic-field{flex:1 1 88px}
 #clinic-panel .btn{width:100%}
+#clinic-state-text{width:100%;box-sizing:border-box;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.4;resize:vertical}
 #clinic-panel .form-range{width:100%}
 #clinic-fov-label,#clinic-distance-label{flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px}
 #clinic-fov-label .form-range,#clinic-distance-label .form-range{flex:1 0 100%}
@@ -1286,8 +1287,16 @@ html>body{padding:0}</style>
       <p class="text-small" id="clinic-export-info" aria-live="polite">出力：表示中のフロア・配置・配色・視点・画角。木目の細かな表現と照明は別途調整。</p>
     </section>
 
+    <section class="clinic-sec">
+      <h3>設定の受け渡し</h3>
+      <button type="button" class="btn" id="clinic-copy-state">変更点をコピー（チャットに貼り付け）</button>
+      <textarea class="form-control" id="clinic-state-text" rows="4" spellcheck="false" placeholder="ここに設定の文字列が出ます／貼り付けもできます"></textarea>
+      <button type="button" class="btn" id="clinic-paste-state">この欄の内容を反映</button>
+      <p class="text-small" id="clinic-state-info" aria-live="polite">既定値と違うところだけを短い文字列で書き出します。チャットに貼り付けるとClaudeが既定値として取り込めます。</p>
+    </section>
+
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-09-10b 旧1F追加・部屋ごとの仕上げ</p>
+    <p class="text-small" id="clinic-build">版：2026-09-10c 部屋ごとの仕上げ・設定の受け渡し</p>
   </aside>
 </div>
 </div>
@@ -1771,6 +1780,15 @@ layouts['2'].push(
  make('バックヤード1棚','cabinet',2.75,9.50,1.55,.40,1.6,0,'手書き修正で南側の壁にベタ付け'),make('バックヤード2棚','cabinet',10.10,10.20,.40,1.85,1.6)
 );
 
+// The drawing-derived defaults. Everything the app exports is a diff against this,
+// so a pasted-back state keeps its meaning even after more furniture is added.
+const BASE={layouts:JSON.parse(JSON.stringify(layouts)),
+ globals:{preset:q('preset').value,wall:q('wall').value,floor:q('floor').value,counter:q('counter').value,
+  ceiling:q('ceiling').value,pattern:q('pattern').value,dado:Number(q('dado').value)}};
+// Tweaks made in the app and pasted back in with tools/apply-settings.py.
+// Rewritten wholesale by that script; {} means "the built-in defaults".
+const savedState={};
+
 const items=()=>layouts[q('view').value];
 const norm=r=>((r%360)+360)%360;
 // Footprint of an item rotated by any angle, kept anchored at its x/z corner.
@@ -1880,6 +1898,73 @@ q('plan').addEventListener('pointerdown',e=>{
 });
 q('plan').addEventListener('pointermove',e=>{if(!dragItem)return;const [x,z]=planPoint(e),f=items()[selected];f.x=Math.round(clamp(x-dragItem.dx,0,10.8)*100)/100;f.z=Math.round(clamp(z-dragItem.dz,0,12.5)*100)/100;editChanged();});
 for(const ev of ['pointerup','pointercancel','lostpointercapture'])q('plan').addEventListener(ev,()=>dragItem=null);
+// Restores a state produced by stateText(). Anything the state leaves out goes back
+// to the built-in default, so applying the same text twice lands in the same place.
+function applyState(st){
+ if(!st||typeof st!=='object'||st.format!=='clinic-state-v1')throw Error('形式が違います（clinic-state-v1 ではありません）');
+ const hex=/^#[0-9a-f]{6}$/i,g=st.global||{};
+ for(const [k,v]of Object.entries(BASE.globals))q(k).value=v;
+ for(const k of ['wall','floor','counter','ceiling'])if(typeof g[k]==='string'&&hex.test(g[k]))q(k).value=g[k];
+ if(typeof g.preset==='string'&&presets[g.preset])q('preset').value=g.preset;
+ if(['wood','tile','plain'].includes(g.pattern))q('pattern').value=g.pattern;
+ if(Number.isFinite(g.dado))q('dado').value=clamp(g.dado,600,1500);
+ const fin={'0':{},'1':{},'2':{}};
+ for(const lv of ['0','1','2']){const src=(st.finishes||{})[lv]||{};
+  for(const [name,o]of Object.entries(src)){
+   if(!zones[lv].some(r=>r[0]===name)||!o||typeof o!=='object')continue;
+   const kept={};for(const k of ['wall','floor','ceiling','dado'])if(typeof o[k]==='string'&&hex.test(o[k]))kept[k]=o[k];
+   if(Object.keys(kept).length)fin[lv][name]=kept;}}
+ roomFinish=fin;
+ layouts=JSON.parse(JSON.stringify(BASE.layouts));
+ const lim={x:[0,10.8],z:[0,12.5],w:[.2,5],d:[.2,5],h:[.2,2.4]};let moved=0;
+ for(const lv of ['0','1','2']){const src=(st.furniture||{})[lv]||{};
+  for(const [key,o]of Object.entries(src)){
+   const f=layouts[lv][Number(key)];
+   if(!f||!o||typeof o!=='object')continue;
+   if(typeof o.name==='string'&&o.name!==f.name)continue;
+   let hit=false;
+   for(const k of ['x','z','w','d','h'])if(Number.isFinite(o[k])){f[k]=clamp(o[k],lim[k][0],lim[k][1]);hit=true;}
+   if(Number.isInteger(o.r)&&o.r>=0&&o.r<360){f.r=o.r;hit=true;}
+   if(hit){f.source='取り込んだ設定（図面寸法との再照合が必要）';moved++;}
+  }}
+ return moved;
+}
+// Only what differs from the built-in defaults, so the text stays short enough to paste.
+function stateText(){
+ const g={};
+ for(const [k,v]of Object.entries(BASE.globals)){const now=k==='dado'?Number(q(k).value):q(k).value;if(now!==v)g[k]=now;}
+ const finishes={},furniture={};
+ for(const lv of ['0','1','2']){
+  if(Object.keys(roomFinish[lv]).length)finishes[lv]=roomFinish[lv];
+  const out={};
+  layouts[lv].forEach((f,i)=>{const b=BASE.layouts[lv][i],d={};
+   for(const k of ['x','z','w','d','h'])if(Math.abs(f[k]-b[k])>1e-6)d[k]=Number(f[k].toFixed(3));
+   if(f.r!==b.r)d.r=f.r;
+   if(Object.keys(d).length)out[i]={name:f.name,...d};});
+  if(Object.keys(out).length)furniture[lv]=out;
+ }
+ const st={format:'clinic-state-v1',saved:new Date().toISOString().slice(0,16).replace('T',' ')};
+ if(Object.keys(g).length)st.global=g;
+ if(Object.keys(finishes).length)st.finishes=finishes;
+ if(Object.keys(furniture).length)st.furniture=furniture;
+ return JSON.stringify(st,null,1);
+}
+q('copy-state').addEventListener('click',async()=>{
+ const text=stateText();q('state-text').value=text;q('state-text').select();
+ let ok=false;try{await navigator.clipboard.writeText(text);ok=true;}catch{}
+ const empty=text.length<80;
+ q('state-info').textContent=empty?'既定値のままです。何か変えてから書き出してください。'
+  :(ok?'コピーしました。':'この欄の文字を選んでコピーしてください。')+`（${text.length} 文字）チャットに貼り付けるとClaudeが既定値に取り込めます。`;
+});
+q('paste-state').addEventListener('click',()=>{
+ try{
+  const text=q('state-text').value.trim();if(!text)throw Error('この欄に設定の文字列を貼り付けてください');
+  if(text.length>400000)throw Error('長すぎます');
+  const moved=applyState(JSON.parse(text));
+  refreshItems();refreshRoomPick();dirty=true;render();
+  q('state-info').textContent=`反映しました（家具 ${moved} 点／個別指定 ${['0','1','2'].reduce((n,l)=>n+Object.keys(roomFinish[l]).length,0)} 室）。`;
+ }catch(e){q('state-info').textContent='読み込めません：'+(e.message||'内容を確認してください');}
+});
 q('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'clinic-layout-full-v8',layouts,finishes:roomFinish,dado:Number(q('dado').value)},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='clinic-layout.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 q('load').addEventListener('change',async()=>{
  try{
@@ -2199,6 +2284,7 @@ q('panel-btn').addEventListener('click',()=>showPanel(panel.hidden));
 q('panel-close').addEventListener('click',()=>showPanel(false));
 scrim.addEventListener('click',()=>showPanel(false));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){e.preventDefault();showPanel(false);}});
+if(Object.keys(savedState).length){try{applyState(savedState);}catch(e){console.warn('savedState',e);}}
 refreshRooms();refreshRoomPick();new ResizeObserver(render).observe(canvas);new ResizeObserver(render).observe(q('plan'));modeChange();
 })();
 </script>
