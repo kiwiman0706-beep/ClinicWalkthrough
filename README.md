@@ -103,6 +103,8 @@ python3 tools/apply-pwa-patch.py src/clinicwalkthrough.html   # index.html を�
 | `src/clinicwalkthrough.html` | アプリ本体（**編集するのはこのファイル**） |
 | `tools/apply-pwa-patch.py` | 本体から `index.html` を作るスクリプト |
 | `tools/apply-settings.py` | アプリから書き出した設定を既定値として取り込むスクリプト |
+| `tools/build-kit.py` | 知人配布用の zip（`dist/walkthrough-kit.zip`）を作るスクリプト |
+| `kit/` | 配布キットの中身（プロンプト集・手引き・サンプル建物） |
 | `docs/図面照合メモ.md` | 設計図と突き合わせて直した内容の記録 |
 | `manifest.webmanifest` | アプリ名・アイコン・全画面表示などの設定 |
 | `sw.js` | オフライン用の Service Worker |
@@ -126,6 +128,21 @@ python3 tools/apply-pwa-patch.py src/clinicwalkthrough.html   # index.html を�
 `src/clinicwalkthrough.html` の `const savedState={...};` の 1 行だけが書き換わり、
 `index.html` も同時に作り直されます。図面から起こした元の数値はファイルに残ったままなので、
 `--clear` でいつでも図面どおりに戻せます。
+
+## 知人に配るキットを作る
+
+このアプリの仕組みを、図面を持っている人が自分の建物で使えるようにした一式を書き出せます。
+
+```
+python3 tools/build-kit.py        # -> dist/walkthrough-kit.zip
+```
+
+エンジン（`src/clinicwalkthrough.html`）の `//<<BUILDING>>` 〜 `//<</BUILDING>>` を
+`kit/building-sample.js`（架空の「みどり内科クリニック」）に差し替えたものが入ります。
+**このクリニックの図面・部屋名・寸法は一切入りません**（ビルド時に検査しています）。
+zip には Claude 用のプロンプト集、図面の読み取り手順、練習用のサンプル図面 PDF が付きます。
+
+エンジンを改良したら、もう一度このコマンドを叩けば zip も新しくなります。
 
 ## メモ
 
