@@ -1267,8 +1267,29 @@ html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:n
         <label class="clinic-field">壁紙<input class="form-control form-control-color" type="color" id="clinic-wall" value="#eeeae2"></label>
         <label class="clinic-field">床<input class="form-control form-control-color" type="color" id="clinic-floor" value="#c9b89e"></label>
         <label class="clinic-field">受付正面<input class="form-control form-control-color" type="color" id="clinic-counter" value="#af9471"></label>
+        <label class="clinic-field">天井<input class="form-control form-control-color" type="color" id="clinic-ceiling" value="#f5f2ec"></label>
       </div>
       <label class="clinic-field">床柄<select class="form-select" id="clinic-pattern"><option value="wood">木目調</option><option value="tile">タイル調</option><option value="plain">無地</option></select></label>
+    </section>
+
+    <section class="clinic-sec">
+      <h3>部屋ごとの仕上げ</h3>
+      <label class="clinic-field">部屋<select class="form-select" id="clinic-room-pick"></select></label>
+      <div class="clinic-colors">
+        <label class="clinic-field">壁<input class="form-control form-control-color" type="color" id="clinic-r-wall" value="#eeeae2"></label>
+        <label class="clinic-field">床<input class="form-control form-control-color" type="color" id="clinic-r-floor" value="#c9b89e"></label>
+        <label class="clinic-field">天井<input class="form-control form-control-color" type="color" id="clinic-r-ceiling" value="#f5f2ec"></label>
+      </div>
+      <div class="clinic-row">
+        <label class="form-check clinic-grow"><input class="form-check-input" type="checkbox" id="clinic-r-dado"><span class="form-check-label">腰壁をつける</span></label>
+        <label class="clinic-field">腰壁の色<input class="form-control form-control-color" type="color" id="clinic-r-dado-color" value="#7c5c3c"></label>
+      </div>
+      <label class="clinic-field">腰壁の高さ <span id="clinic-dado-value">900mm</span><input class="form-range" type="range" min="600" max="1500" step="50" value="900" id="clinic-dado"></label>
+      <div class="clinic-row">
+        <button type="button" class="btn" id="clinic-room-clear">この部屋を全体設定に戻す</button>
+        <button type="button" class="btn" id="clinic-room-clear-all">このフロアを全部戻す</button>
+      </div>
+      <p class="text-small" id="clinic-room-info" aria-live="polite"></p>
     </section>
 
     <section class="clinic-sec">
@@ -1293,7 +1314,7 @@ html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:n
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-09-10 旧1F追加</p>
+    <p class="text-small" id="clinic-build">版：2026-09-10b 旧1F追加・部屋ごとの仕上げ</p>
   </aside>
 </div>
 </div>
@@ -1308,22 +1329,22 @@ const isOrbit=()=>q('mode').value==='orbit',lowWalls=()=>isOrbit()&&q('cut').che
 const chamfered=()=>q('view').value!=='2';
 const floorTag=()=>q('view').value==='0'?'old1F':q('view').value+'F';
 const color=id=>q(id).value;
-// Schemes taken from the reference clinic interiors: [wall, floor, counter front, floor pattern].
+// Schemes taken from the reference clinic interiors: [wall, floor, counter front, floor pattern, ceiling].
 const presets={
- natural:['#eeeae2','#c9b89e','#af9471','wood'],
- warm:['#e9e3dc','#b9b0a5','#a69988','tile'],
- sage:['#e9ece3','#d0c2a9','#8e9f87','wood'],
- blue:['#eceeed','#bfc2c1','#718792','tile'],
- walnut:['#e4dbc9','#6f6d68','#7c5c3c','plain'],
- charcoal:['#787c7d','#cbc8c0','#b08f62','tile'],
- offwhite:['#f4f1ea','#e4ded2','#e9e2d4','plain'],
- terrazzo:['#e2d5c1','#d6d6d2','#c6a86e','tile'],
- lightoak:['#e8ddca','#e3e1db','#b6c5cf','tile'],
- darkwood:['#ded4c3','#e0d5c4','#5b4331','wood'],
- teal:['#b9bfc0','#e3e2de','#4e8f8a','tile'],
- warmoak:['#f0ece4','#c49a63','#7a5636','wood'],
+ natural:['#eeeae2','#c9b89e','#af9471','wood','#f5f2ec'],
+ warm:['#e9e3dc','#b9b0a5','#a69988','tile','#f2eee9'],
+ sage:['#e9ece3','#d0c2a9','#8e9f87','wood','#f3f5ef'],
+ blue:['#eceeed','#bfc2c1','#718792','tile','#f4f6f5'],
+ walnut:['#e4dbc9','#6f6d68','#7c5c3c','plain','#f0ebe0'],
+ charcoal:['#787c7d','#cbc8c0','#b08f62','tile','#e8e9e6'],
+ offwhite:['#f4f1ea','#e4ded2','#e9e2d4','plain','#faf8f3'],
+ terrazzo:['#e2d5c1','#d6d6d2','#c6a86e','tile','#f2ebe0'],
+ lightoak:['#e8ddca','#e3e1db','#b6c5cf','tile','#f5efe4'],
+ darkwood:['#ded4c3','#e0d5c4','#5b4331','wood','#efe9dd'],
+ teal:['#b9bfc0','#e3e2de','#4e8f8a','tile','#eceeee'],
+ warmoak:['#f0ece4','#c49a63','#7a5636','wood','#f7f4ee'],
 };
-function face(v,c,k=1){
+function face(v,c,k=1,m){
 // Match the angled entrance edge when drawing the first-floor finish.
 if(!outside&&chamfered()&&v.every(p=>p[1]<.01)){
   let out=[];
@@ -1331,28 +1352,53 @@ if(!outside&&chamfered()&&v.every(p=>p[1]<.01)){
     if(da>=0)out.push(a);if((da>=0)!==(db>=0)){const t=da/(da-db);out.push(a.map((n,j)=>n+(b[j]-n)*t));}}
   v=out;
 }
-if(v.length>=3)faces.push({v,c,k,mat:outside?0:(c===color('floor')&&v.every(p=>p[1]<.01)?1:c===color('wall')?2:(c===color('counter')||c==='#d4c9b8')?3:0)});
+if(v.length>=3)faces.push({v,c,k,mat:outside?0:(m!==undefined?m:(c===color('floor')&&v.every(p=>p[1]<.01)?1:c===color('wall')?2:(c===color('counter')||c==='#d4c9b8')?3:0))});
 }
 function box(x,y,z,w,h,d,c){
 if(!outside&&y<1.55&&y+h>.22)solids.push([x,z,x+w,z+d]);
 const a=[x,y,z],b=[x+w,y,z],c1=[x+w,y,z+d],d1=[x,y,z+d],e=[x,y+h,z],f=[x+w,y+h,z],g=[x+w,y+h,z+d],h1=[x,y+h,z+d];
 face([a,b,f,e],c,.89);face([d1,c1,g,h1],c,.96);face([a,d1,h1,e],c,.83);face([b,c1,g,f],c,.92);face([e,f,g,h1],c,1.04);
 }
-const wall=(x,z,w,d)=>box(x,0,z,w,lowWalls()?1.05:2.6,d,color('wall'));
+// A wall block. Every vertical face is finished for the room on that side of it, so a
+// partition can be one colour in the waiting room and another in the consulting room,
+// and picks up that room's dado band.
+function wallBox(x,y,z,w,h,d){
+ if(!outside&&y<1.55&&y+h>.22)solids.push([x,z,x+w,z+d]);
+ const X=x+w,Z=z+d,T=y+h,e=.07;
+ const sides=[
+  [[x,y,z],[X,y,z],[X,T,z],[x,T,z],.89,x+w/2,z-e],
+  [[x,y,Z],[X,y,Z],[X,T,Z],[x,T,Z],.96,x+w/2,Z+e],
+  [[x,y,z],[x,y,Z],[x,T,Z],[x,T,z],.83,x-e,z+d/2],
+  [[X,y,z],[X,y,Z],[X,T,Z],[X,T,z],.92,X+e,z+d/2]];
+ for(const [p0,p1,p2,p3,k,px,pz]of sides){
+  const r=zoneAt(px,pz),wc=rf(r,'wall'),dc=rf(r,'dado'),H=dadoH();
+  if(dc&&T<=H){face([p0,p1,p2,p3],dc,k,3);continue;}
+  if(dc&&y<H&&T>H){
+   const t=(H-y)/(T-y),mix=(a,b)=>a.map((v,i)=>v+(b[i]-v)*t),m0=mix(p0,p3),m1=mix(p1,p2);
+   face([p0,p1,m1,m0],dc,k,3);face([m0,m1,p2,p3],wc,k,2);continue;
+  }
+  face([p0,p1,p2,p3],wc,k,2);
+ }
+ face([[x,T,z],[X,T,z],[X,T,Z],[x,T,Z]],rf(zoneAt(x+w/2,z+d/2),'wall'),1.04,2);
+}
+const wall=(x,z,w,d)=>wallBox(x,0,z,w,lowWalls()?1.05:2.6,d);
 // Structural columns from the plan: 350 sq at the long walls, plus the round one by the entrance.
-const pillar=(x,z,s)=>box(x,0,z,s,lowWalls()?1.05:2.6,s,color('wall'));
+const pillar=(x,z,s)=>wallBox(x,0,z,s,lowWalls()?1.05:2.6,s);
 function pillars(){for(const x of [.08,10.37])for(const z of [.08,4.07,9.65])pillar(x,z,.35);}
 function post2f(){pillar(6.33,12.12,.30);pillar(10.42,12.12,.30);}
 function post(cx,cz,d){
- const r=d/2,h=lowWalls()?1.05:2.6,c=color('wall'),P=(t,y)=>[cx+r*Math.cos(t),y,cz+r*Math.sin(t)],top=[];
- for(let i=0;i<16;i++){const a=i*Math.PI/8,b=(i+1)*Math.PI/8;
-  face([P(a,0),P(b,0),P(b,h),P(a,h)],c,.84+.2*Math.abs(Math.cos((a+b)/2)));top.push(P(a,h));}
- face(top,c,1.04);if(!outside)solids.push([cx-r,cz-r,cx+r,cz+r]);
+ const r=d/2,h=lowWalls()?1.05:2.6,room=zoneAt(cx,cz),c=rf(room,'wall'),dc=rf(room,'dado'),H=Math.min(dadoH(),h);
+ const P=(t,y)=>[cx+r*Math.cos(t),y,cz+r*Math.sin(t)],top=[];
+ for(let i=0;i<16;i++){const a=i*Math.PI/8,b=(i+1)*Math.PI/8,k=.84+.2*Math.abs(Math.cos((a+b)/2));
+  if(dc){face([P(a,0),P(b,0),P(b,H),P(a,H)],dc,k,3);face([P(a,H),P(b,H),P(b,h),P(a,h)],c,k,2);}
+  else face([P(a,0),P(b,0),P(b,h),P(a,h)],c,k,2);
+  top.push(P(a,h));}
+ face(top,c,1.04,2);if(!outside)solids.push([cx-r,cz-r,cx+r,cz+r]);
 }
 function doorX(x,z,w,type='hinge',direction=1){
  floor(x,z-.03,x+w,z+.13);
  const h=lowWalls()?1.05:2.12;
- if(!lowWalls())box(x,2.12,z,w,.48,.10,color('wall'));
+ if(!lowWalls())wallBox(x,2.12,z,w,.48,.10);
  box(x-.025,0,z-.02,.04,h,.14,'#c8bba6');box(x+w-.015,0,z-.02,.04,h,.14,'#c8bba6');
  if(q('open').checked&&type!=='shut'){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(x,0,direction>0?z:z-w,.045,h,w,'#d4c9b8');}
  else{box(x,0,z,w,h,.045,'#d4c9b8');box(x+w-.12,.94,z-.027,.025,.12,.025,'#727977');}
@@ -1360,7 +1406,7 @@ function doorX(x,z,w,type='hinge',direction=1){
 function doorZ(x,z,d,type='slide',direction=1){
  floor(x-.03,z,x+.13,z+d);
  const h=lowWalls()?1.05:2.12;
- if(!lowWalls())box(x,2.12,z,.10,.48,d,color('wall'));
+ if(!lowWalls())wallBox(x,2.12,z,.10,.48,d);
  box(x-.02,0,z-.025,.14,h,.04,'#c8bba6');box(x-.02,0,z+d-.015,.14,h,.04,'#c8bba6');
  if(q('open').checked&&type!=='shut'){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(direction>0?x:x-d,0,z,d,h,.045,'#d4c9b8');}
  else{box(x,0,z,.045,h,d,'#d4c9b8');box(x-.025,.94,z+d-.12,.025,.12,.025,'#727977');}
@@ -1370,7 +1416,7 @@ function wallZ(x,z0,z1,doors=[]){let p=z0;for(const d of doors){if(d[0]>p)wall(x
 function elevator(){
  floor(3.04,1.96,4.15,2.16);floor(2.67,.45,4.40,1.99);const h=lowWalls()?1.05:2.6;
  box(2.62,0,.4,1.83,h,.06,'#969fa1');box(2.62,0,.4,.06,h,1.58,'#a5adb0');box(4.39,0,.4,.06,h,1.58,'#a5adb0');
- wall(2.5,1.99,.53,.10);wall(4.15,1.99,.44,.10);if(!lowWalls())box(3.03,2.14,1.99,1.12,.46,.10,color('wall'));
+ wall(2.5,1.99,.53,.10);wall(4.15,1.99,.44,.10);if(!lowWalls())wallBox(3.03,2.14,1.99,1.12,.46,.10);
  box(3.0,0,2.09,.05,lowWalls()?1.05:2.16,.06,'#899294');box(4.15,0,2.09,.05,lowWalls()?1.05:2.16,.06,'#899294');
  if(!lowWalls())box(3.0,2.14,2.09,1.20,.05,.06,'#899294');
  const off=q('elevator').checked?.54:0;
@@ -1383,7 +1429,9 @@ function bench(x,z,w,d){box(x+.07,.06,z+.06,w-.14,.3,d-.12,'#777873');box(x,.38,
 function floor(x0,z0,x1,z1){
 if(!outside)floorAreas.push([x0,z0,x1,z1]);
 const mode=q('pattern').value,dx=mode==='wood'?.20:.6,dz=mode==='wood'?1.1:.6;
-for(let x=x0;x<x1-.001;x+=dx){for(let z=z0;z<z1-.001;z+=dz){let seed=Math.sin(x*121+z*93)*43758.54;seed-=Math.floor(seed);const gap=mode==='plain'?0:.003;let ex=Math.min(x+dx,x1),ez=Math.min(z+dz,z1);face([[x,0,z],[ex,0,z],[ex,0,ez],[x,0,ez]],'#a69e93',1);face([[x+gap,.002,z+gap],[ex-gap,.002,z+gap],[ex-gap,.002,ez-gap],[x+gap,.002,ez-gap]],color('floor'),mode==='plain'?1:.95+seed*.1);
+for(let x=x0;x<x1-.001;x+=dx){for(let z=z0;z<z1-.001;z+=dz){let seed=Math.sin(x*121+z*93)*43758.54;seed-=Math.floor(seed);const gap=mode==='plain'?0:.003;let ex=Math.min(x+dx,x1),ez=Math.min(z+dz,z1);
+ const fc=outside?color('floor'):rf(zoneAt((x+ex)/2,(z+ez)/2),'floor');
+   face([[x,0,z],[ex,0,z],[ex,0,ez],[x,0,ez]],'#a69e93',1,0);face([[x+gap,.002,z+gap],[ex-gap,.002,z+gap],[ex-gap,.002,ez-gap],[x+gap,.002,ez-gap]],fc,mode==='plain'?1:.95+seed*.1,1);
 
 }}
 }
@@ -1395,7 +1443,14 @@ function beam(a,b,y,h,t,c='#87928f'){
 }
 // Straight wall on an arbitrary bearing; solids are stepped along it so it still blocks walking.
 function diagWall(a,b,t=.14){
- beam(a,b,0,lowWalls()?1.05:2.6,t,color('wall'));
+ const h=lowWalls()?1.05:2.6,dx=b[0]-a[0],dz=b[1]-a[1],L=Math.hypot(dx,dz),nx=-dz/L,nz=dx/L;
+ for(const s of [1,-1]){
+  const off=u=>[(a[0]+b[0])/2*0+u[0]+nx*s*t/4,u[1]+nz*s*t/4];
+  const room=zoneAt((a[0]+b[0])/2+nx*s*(t/2+.07),(a[1]+b[1])/2+nz*s*(t/2+.07));
+  beam(off(a),off(b),0,h,t/2,rf(room,'wall'));
+  const dc=rf(room,'dado');
+  if(dc)beam(off(a),off(b),0,Math.min(dadoH(),h),t/2+.012,dc);
+ }
  const n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.16);
  for(let i=0;i<n;i++){const u=(i+.5)/n,x=a[0]+(b[0]-a[0])*u,z=a[1]+(b[1]-a[1])*u,r=t/2+.02;solids.push([x-r,z-r,x+r,z+r]);}
 }
@@ -1449,6 +1504,16 @@ function streetScene(){
  for(const x of [-2.6,-.35]){box(x,.03,19,.38,.44,.20,'#535d5f');box(x,.03,20.5,.38,.44,.20,'#535d5f');}
  outside=false;
 }
+// Base ceiling plus a patch for every room that overrides its ceiling colour. The patch
+// sits a few millimetres below so it wins over the base plane when you look up.
+function ceilingPlane(y,poly){face(poly,color('ceiling'),1,0);}
+function roomCeilings(y){
+ const f=roomFinish[q('view').value];
+ for(const [n,a,b,c,d]of zones[q('view').value]){
+  const o=f[n];if(!o||o.ceiling==null)continue;
+  face([[a,y-.012,b],[c,y-.012,b],[c,y-.012,d],[a,y-.012,d]],o.ceiling,1,0);
+ }
+}
 function scene0(){
  // 旧1階（2008年・リフォーム前の平面図）。現1F・2Fと同じ 10.8 × 12.5 m グリッドに載る。
  // 共用ホール・階段室・EVホール（300角タイル貼り）
@@ -1491,7 +1556,7 @@ function scene0(){
  // 受付。待合側はパイプシャッター付きのカウンター。
  wall(7.95,5.27,.10,2.66);wallX(7.85,5.85,7.95,[[6.21,.82,'slide']]);
  box(5.85,0,5.27,.30,.95,2.36,color('counter'));box(5.80,.95,5.22,.40,.06,2.46,'#f3f0e9');
- if(!lowWalls())box(5.85,1.98,5.27,.30,.62,2.36,color('wall'));
+ if(!lowWalls())wallBox(5.85,1.98,5.27,.30,.62,2.36);
  if(!lowWalls())for(let z=5.32;z<7.58;z+=.11)box(5.94,1.05,z,.12,.93,.03,'#9aa2a0');
  // 診察室③・診察室②
  wallX(7.19,7.95,10.70,[[8.63,.82,'slide']]);wallZ(7.95,7.95,10.06,[[8.11,.78,'hinge',-1]]);wallX(10.06,8.05,10.70);
@@ -1500,7 +1565,7 @@ function scene0(){
  wallX(9.83,2.58,6.15,[[3.85,.90,'slide']]);wallX(11.57,2.58,6.15,[[3.77,1.06,'slide']]);
  pillars();post(2.69,12.18,.40);pillar(6.33,12.12,.30);
  if(!isOrbit()&&!isPlan()){
-   face([[0,2.6,.1],[10.8,2.6,.1],[10.8,2.6,12.4],[2.5,2.6,12.4],[0,2.6,10]],'#f2f0e9');
+   ceilingPlane(2.6,[[0,2.6,.1],[10.8,2.6,.1],[10.8,2.6,12.4],[2.5,2.6,12.4],[0,2.6,10]]);roomCeilings(2.6);
    streetScene();
  }
 }
@@ -1539,9 +1604,10 @@ function scene1(){
  wall(6.78,10.45,.10,1.95);
  fullFloor1();glassFrontage();if(!isOrbit()&&!isPlan()){
    // The entrance corner of the waiting room is open to the second floor.
-   face([[0,2.6,.1],[10.8,2.6,.1],[10.8,2.6,10.18],[0,2.6,10.18]],'#f2f0e9');
-   face([[3.81,2.6,10.18],[10.8,2.6,10.18],[10.8,2.6,12.43],[3.81,2.6,12.43]],'#f2f0e9');
-   face([[0,5.6,10.18],[3.81,5.6,10.18],[3.81,5.6,12.43],[2.43,5.6,12.43],[0,5.6,10]],'#f2f0e9');
+   ceilingPlane(2.6,[[0,2.6,.1],[10.8,2.6,.1],[10.8,2.6,10.18],[0,2.6,10.18]]);
+   ceilingPlane(2.6,[[3.81,2.6,10.18],[10.8,2.6,10.18],[10.8,2.6,12.43],[3.81,2.6,12.43]]);
+   ceilingPlane(5.6,[[0,5.6,10.18],[3.81,5.6,10.18],[3.81,5.6,12.43],[2.43,5.6,12.43],[0,5.6,10]]);
+   roomCeilings(2.6);
    face([[0,2.6,10.18],[3.81,2.6,10.18],[3.81,5.6,10.18],[0,5.6,10.18]],color('wall'),.92);
    face([[3.81,2.6,10.18],[3.81,2.6,12.43],[3.81,5.6,12.43],[3.81,5.6,10.18]],color('wall'),.86);
    streetScene();
@@ -1557,12 +1623,11 @@ function scene2(){
  wallZ(4.56,2.09,3.82,[[2.43,.88,'slide']]);wall(4.56,3.82,4.20,.10);wallZ(8.76,3.92,8.25,[[4.90,.90,'slide'],[7.32,.90,'slide']]);wall(6.28,2.09,.1,1.73);wallX(2.09,4.66,6.28);
  wallX(7.98,2.50,4.48,[[3.87,.61,'slide']]);wall(4.48,6.08,.10,1.98);
  box(2.50,0,6.10,1.35,.85,.37,color('counter'));box(2.47,.85,6.05,1.41,.06,.48,'#f2eee7');
- if(!lowWalls())box(2.50,2.14,6.1,1.35,.46,.10,color('wall'));box(3.85,0,6.10,.62,.85,.37,color('counter'));box(3.82,.85,6.05,.68,.06,.48,'#f2eee7');
+ if(!lowWalls())wallBox(2.50,2.14,6.1,1.35,.46,.10);box(3.85,0,6.10,.62,.85,.37,color('counter'));box(3.82,.85,6.05,.68,.06,.48,'#f2eee7');
  wallX(6.10,4.58,8.76,[[5.14,.90,'slide'],[7.81,.90,'slide']]);
  wall(6.89,6.2,.10,2.6);wallZ(4.48,8.08,10.0,[[9.00,.70,'slide']]);fullFloor2();
-
-
  elevator();
+ if(!isOrbit()&&!isPlan()){ceilingPlane(2.6,[[0,2.6,.1],[10.8,2.6,.1],[10.8,2.6,12.5],[0,2.6,12.5]]);roomCeilings(2.6);}
 }
 
 function fullFloor1(){
@@ -1599,6 +1664,72 @@ function fullFloor2(){
  pillars();post2f();
  box(2.5,0,9.97,2.4,.95,.045,'#89938d');
 }
+
+// Room zones: the plan split into rectangles so each room can carry its own finish.
+// A point is matched against the first rectangle that contains it, so rooms sitting
+// inside a larger one (the staff WCs) are listed before the room around them.
+const zones={
+ '0':[
+  ['職員用WC',9.86,5.89,10.70,7.14],
+  ['階段室',.10,.20,2.39,3.03],['ホール',.10,3.03,2.42,9.26],
+  ['ホール',2.42,3.70,3.25,4.06],['ホール',2.42,4.06,2.92,4.36],['ホール',2.42,4.36,2.66,4.66],
+  ['EVホール',2.42,2.11,4.59,3.70],
+  ['患者用WC',2.58,4.57,3.30,5.73],['患者用WC',3.30,4.26,4.05,5.73],['患者用WC',4.05,3.95,4.59,5.73],
+  ['前室',4.69,3.09,5.95,3.92],['中廊下',4.69,4.02,5.95,5.88],
+  ['診察室①',4.69,2.11,5.07,3.02],['診察室①',5.07,.20,10.70,3.02],
+  ['検査室',6.05,3.12,8.74,5.17],
+  ['スタッフルーム',8.84,3.12,10.70,7.14],['スタッフルーム',8.05,5.27,8.84,7.14],
+  ['受付',5.95,5.27,7.95,7.85],['待合室',2.58,5.83,5.85,9.83],['廊下',5.85,7.95,7.95,9.06],
+  ['風除室',2.58,9.93,6.15,11.57],
+  ['診察室③',8.05,7.29,10.70,10.06],
+  ['診察室②',6.30,9.16,8.05,10.16],['診察室②',6.30,10.16,10.70,12.40],
+  ['外部アプローチ',.10,9.36,2.58,12.40],['外部アプローチ',2.58,11.67,6.15,12.40]
+ ],
+ '1':[
+  ['職員用WC',9.18,8.77,10.70,9.52],
+  ['階段ホール',.10,.10,2.50,4.50],['患者用WC',.10,4.7,2.17,6.5],
+  ['EVホール',2.50,2.09,4.89,3.62],['廊下',2.50,3.62,3.55,4.60],['廊下',2.17,4.60,3.55,6.5],
+  ['診察室2',3.65,3.72,6.05,5.62],['診察室1',3.65,5.62,6.05,7.83],
+  ['バックヤード',6.05,3.72,6.90,7.83],['バックヤード',4.99,2.18,6.90,3.62],
+  ['機械室（サブ）',4.99,.1,6.90,2.18],
+  ['受付',3.55,7.83,6.94,9.30],
+  ['待合',0,6.5,3.55,12.4],['待合',3.55,9.30,6.94,12.4],
+  ['MRI室',7.04,.1,10.70,6.44],
+  ['検査室',7.04,6.54,9.08,9.52],['操作スペース',9.08,6.54,10.70,8.67],
+  ['エックス線室',7.04,9.52,8.56,11.07],['エックス線室',8.66,9.62,10.70,12.40],
+  ['更衣1',6.88,11.17,7.64,12.4],['更衣2',7.74,11.17,8.56,12.4]
+ ],
+ '2':[
+  ['職員用WC',9.85,2.59,10.7,3.82],
+  ['階段',.1,.1,2.40,4.50],['心療内科',.1,4.60,2.40,9.90],
+  ['EVホール',2.5,2.09,4.58,3.92],
+  ['待合',2.5,3.92,4.58,6.10],['待合',4.58,3.92,8.77,6.10],
+  ['患者用WC',4.68,2.19,6.28,3.82],
+  ['受付',2.5,6.10,4.48,8.0],
+  ['診療室1',4.58,6.20,6.89,10],['診療室2',6.99,6.20,8.77,10],
+  ['機械室',4.99,.70,10.7,2.09],['機械室',6.38,2.09,9.75,3.82],
+  ['スタッフルーム',8.86,3.82,10.7,8.25],['更衣室',8.86,8.35,10.70,9.90],
+  ['バックヤード1',2.5,8.08,4.48,9.90],
+  ['処置スペース',4.99,10,8.76,12.4],['処置スペース',6.25,12.1,8.76,12.50],
+  ['バックヤード2',8.86,10,10.70,12.40]
+ ]
+};
+// Per-room overrides of the global finish. Only the keys the user actually changed
+// are stored, so a room with no entry follows the panel's colours.
+let roomFinish={'0':{},'1':{},'2':{}};
+function zoneAt(x,z){for(const [n,a,b,c,d]of zones[q('view').value])if(x>=a&&x<=c&&z>=b&&z<=d)return n;return '';}
+// Resolved finish for one room: 'wall' | 'floor' | 'ceiling' fall back to the panel,
+// 'dado' returns the wainscot colour or null when the room has none.
+function rf(room,kind){
+ const o=roomFinish[q('view').value][room];
+ if(o&&o[kind]!=null)return o[kind];
+ return kind==='dado'?null:color(kind);
+}
+// In the cut-away overview the walls are squashed to 1.05 m, so squash the dado with them;
+// at full height a 900 mm band would otherwise swallow the whole wall from above.
+const dadoH=()=>Number(q('dado').value)/1000*(lowWalls()?1.05/2.6:1);
+const roomNames=()=>[...new Set(zones[q('view').value].map(r=>r[0]))];
+
 let roomView=null;
 const roomLabels={
  '1':[[8.9,5.95,'MRI室'],[6.0,.9,'機械室（サブ）'],[3.5,3.0,'EVホール'],[1.2,4.15,'階段ホール'],[1.1,6.3,'WC(P)'],[4.6,5.43,'診察室2'],[4.6,7.7,'診察室1'],[6.64,5.75,'裏'],[5.15,9.08,'受付'],[3.5,10.5,'待合'],[8.0,8.4,'検査室'],[9.9,8.4,'操作'],[9.9,9.4,'WC(S)'],[9.65,10.8,'X線室'],[7.26,11.55,'更衣1'],[8.12,11.55,'更衣2']],
@@ -1742,7 +1873,7 @@ function drawPlan(){
  planScale=Math.min((width-40)/11.2,(height-60)/12.7);planOx=(width-10.8*planScale)/2;planOy=Math.max(22,(height-12.5*planScale)/2);
  const X=x=>planOx+x*planScale,Y=z=>planOy+z*planScale;
  c.save();if(chamfered()){c.beginPath();c.moveTo(X(0),Y(0));c.lineTo(X(10.8),Y(0));c.lineTo(X(10.8),Y(13));c.lineTo(X(3),Y(13));c.lineTo(X(0),Y(10));c.closePath();c.clip();}
- c.fillStyle=color('floor');for(const a of floorAreas)c.fillRect(X(a[0]),Y(a[1]),(a[2]-a[0])*planScale,(a[3]-a[1])*planScale);c.restore();
+ for(const a of floorAreas){c.fillStyle=rf(zoneAt((a[0]+a[2])/2,(a[1]+a[3])/2),'floor');c.fillRect(X(a[0]),Y(a[1]),(a[2]-a[0])*planScale,(a[3]-a[1])*planScale);}c.restore();
  c.strokeStyle=ink;c.globalAlpha=.14;c.lineWidth=.5;
  for(let x=0;x<=10.8;x++){c.beginPath();c.moveTo(X(x),Y(0));c.lineTo(X(x),Y(12.5));c.stroke();}
  for(let z=0;z<=12;z++){c.beginPath();c.moveTo(X(0),Y(z));c.lineTo(X(10.8),Y(z));c.stroke();}c.globalAlpha=1;
@@ -1776,14 +1907,24 @@ q('plan').addEventListener('pointerdown',e=>{
 });
 q('plan').addEventListener('pointermove',e=>{if(!dragItem)return;const [x,z]=planPoint(e),f=items()[selected];f.x=Math.round(clamp(x-dragItem.dx,0,10.8)*100)/100;f.z=Math.round(clamp(z-dragItem.dz,0,12.5)*100)/100;editChanged();});
 for(const ev of ['pointerup','pointercancel','lostpointercapture'])q('plan').addEventListener(ev,()=>dragItem=null);
-q('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'clinic-layout-full-v7',layouts},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='clinic-layout.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+q('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'clinic-layout-full-v8',layouts,finishes:roomFinish,dado:Number(q('dado').value)},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='clinic-layout.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 q('load').addEventListener('change',async()=>{
  try{
-  const file=q('load').files[0];if(!file)return;if(file.size>1000000)throw Error();const data=JSON.parse(await file.text());if(data.format!=='clinic-layout-full-v7')throw Error();
+  const file=q('load').files[0];if(!file)return;if(file.size>1000000)throw Error();const data=JSON.parse(await file.text());if(data.format!=='clinic-layout-full-v8')throw Error();
   const next={};for(const level of ['0','1','2']){const ar=data.layouts[level];if(!Array.isArray(ar)||ar.length!==layouts[level].length)throw Error();next[level]=ar.map((f,i)=>{
    if(f.type!==layouts[level][i].type||!['x','z','w','d','h'].every(k=>Number.isFinite(f[k]))||f.x<0||f.x>10.8||f.z<0||f.z>12.5||f.w<.2||f.w>5||f.d<.2||f.d>5||f.h<.2||f.h>2.4||!Number.isInteger(f.r)||f.r<0||f.r>359)throw Error();
    return {...layouts[level][i],...Object.fromEntries(['x','z','w','d','h','r'].map(k=>[k,f[k]])),source:'読み込み値（図面寸法との再照合が必要）'};
-  });}layouts=next;refreshItems();editChanged();
+  });}
+  const hex=/^#[0-9a-f]{6}$/i,fin={'0':{},'1':{},'2':{}};
+  for(const level of ['0','1','2']){const src=(data.finishes||{})[level]||{};
+   for(const [name,o]of Object.entries(src)){
+    if(!zones[level].some(r=>r[0]===name)||o==null||typeof o!=='object')continue;
+    const kept={};for(const k of ['wall','floor','ceiling','dado'])if(typeof o[k]==='string'&&hex.test(o[k]))kept[k]=o[k];
+    if(Object.keys(kept).length)fin[level][name]=kept;
+   }}
+  roomFinish=fin;
+  if(Number.isFinite(data.dado))q('dado').value=clamp(data.dado,600,1500);
+  layouts=next;refreshItems();refreshRoomPick();editChanged();
  }catch{q('item-info').textContent='読み込めません。このシミュレーターで保存した配置 JSON を選んでください。';}q('load').value='';
 });
 
@@ -2025,8 +2166,44 @@ let lastTime=0,walking=false;
 function tick(t){if(!keys.size||isOrbit()||isPlan()){walking=false;return;}const dt=lastTime?Math.min((t-lastTime)/1000,.05):.016;lastTime=t;move((keys.has('w')||keys.has('arrowup')?1:0)-(keys.has('s')||keys.has('arrowdown')?1:0),(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0),dt*1.25);requestAnimationFrame(tick);}
 document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(!['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)||isOrbit()||isPlan()||!root.contains(document.activeElement)||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;e.preventDefault();keys.add(k);if(!walking){walking=true;lastTime=0;requestAnimationFrame(tick);}});
 document.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>keys.clear());document.addEventListener('visibilitychange',()=>{if(document.hidden)keys.clear();});root.addEventListener('focusout',e=>{if(!root.contains(e.relatedTarget))keys.clear();});
-q('preset').addEventListener('change',()=>{let p=presets[q('preset').value];['wall','floor','counter','pattern'].forEach((n,i)=>q(n).value=p[i]);dirty=true;render();});
-['wall','floor','counter','pattern','cut','open','elevator','entrance'].forEach(n=>q(n).addEventListener('input',()=>{dirty=true;render();}));
+
+// ---- per-room finishes -------------------------------------------------
+function refreshRoomPick(){
+ const keep=q('room-pick').value,names=roomNames();
+ q('room-pick').replaceChildren(...names.map(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;return o;}));
+ q('room-pick').value=names.includes(keep)?keep:names[0];
+ syncRoomFinish();
+}
+// The colour inputs cannot show "inherit", so an untouched room displays the panel's
+// colours; touching one is what turns it into an override.
+function syncRoomFinish(){
+ const name=q('room-pick').value,o=roomFinish[q('view').value][name]||{};
+ q('r-wall').value=o.wall??color('wall');
+ q('r-floor').value=o.floor??color('floor');
+ q('r-ceiling').value=o.ceiling??color('ceiling');
+ q('r-dado').checked=o.dado!=null;
+ q('r-dado-color').value=o.dado??'#7c5c3c';
+ q('dado-value').textContent=q('dado').value+'mm';
+ const set=['wall','floor','ceiling','dado'].filter(k=>o[k]!=null).length;
+ q('room-info').textContent=set?`この部屋は ${set} 項目を個別指定中（色を変えると個別指定になります）`
+  :'全体設定のままです。色を変えるとこの部屋だけに適用されます。';
+}
+function setRoomFinish(kind,value){
+ const f=roomFinish[q('view').value],name=q('room-pick').value;
+ (f[name]||(f[name]={}))[kind]=value;
+ if(value==null){delete f[name][kind];if(!Object.keys(f[name]).length)delete f[name];}
+ syncRoomFinish();dirty=true;render();
+}
+for(const [id,kind]of [['r-wall','wall'],['r-floor','floor'],['r-ceiling','ceiling']])
+ q(id).addEventListener('input',()=>setRoomFinish(kind,q(id).value));
+q('r-dado').addEventListener('change',()=>setRoomFinish('dado',q('r-dado').checked?q('r-dado-color').value:null));
+q('r-dado-color').addEventListener('input',()=>{q('r-dado').checked=true;setRoomFinish('dado',q('r-dado-color').value);});
+q('dado').addEventListener('input',()=>{q('dado-value').textContent=q('dado').value+'mm';dirty=true;render();});
+q('room-pick').addEventListener('change',syncRoomFinish);
+q('room-clear').addEventListener('click',()=>{delete roomFinish[q('view').value][q('room-pick').value];syncRoomFinish();dirty=true;render();});
+q('room-clear-all').addEventListener('click',()=>{roomFinish[q('view').value]={};syncRoomFinish();dirty=true;render();});
+q('preset').addEventListener('change',()=>{let p=presets[q('preset').value];['wall','floor','counter','pattern','ceiling'].forEach((n,i)=>q(n).value=p[i]);syncRoomFinish();dirty=true;render();});
+['wall','floor','counter','pattern','ceiling','cut','open','elevator','entrance'].forEach(n=>q(n).addEventListener('input',()=>{syncRoomFinish();dirty=true;render();}));
 ['fov','distance'].forEach(n=>q(n).addEventListener('input',render));q('mode').addEventListener('change',modeChange);
 q('position').addEventListener('change',()=>{q('mode').value='inside';roomView=null;walkPos=null;lookYaw=0;lookPitch=0;modeChange();});
 q('view').addEventListener('change',()=>{
@@ -2034,7 +2211,7 @@ q('view').addEventListener('change',()=>{
    :q('view').value==='1'?['受付前 → ガラス・街並み','入口 → エレベーター','入口 → 受付','廊下 → エレベーター','EV前 → 入口・受付']
    :['EV前 → 受付','EV前 → 受付','待合 → 診療室','待合 → エレベーター','受付前 → エレベーター'];
   q('entrance-label').hidden=q('view').value!=='1';
-  Array.from(q('position').options).forEach((o,i)=>o.textContent=labels[i]);refreshItems();refreshRooms();dirty=true;reset();
+  Array.from(q('position').options).forEach((o,i)=>o.textContent=labels[i]);refreshItems();refreshRooms();refreshRoomPick();dirty=true;reset();
 });
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();q('render-error').hidden=false;});
 for(const [list,key,sel]of [['floor-tabs','view','view'],['mode-tabs','mode','mode']])
@@ -2049,7 +2226,7 @@ q('panel-btn').addEventListener('click',()=>showPanel(panel.hidden));
 q('panel-close').addEventListener('click',()=>showPanel(false));
 scrim.addEventListener('click',()=>showPanel(false));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){e.preventDefault();showPanel(false);}});
-refreshRooms();new ResizeObserver(render).observe(canvas);new ResizeObserver(render).observe(q('plan'));modeChange();
+refreshRooms();refreshRoomPick();new ResizeObserver(render).observe(canvas);new ResizeObserver(render).observe(q('plan'));modeChange();
 })();
 </script>
 
