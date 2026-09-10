@@ -2,7 +2,7 @@
 // The app is a single self-contained HTML file with no external requests, so a
 // small precache is enough to make it work fully offline once installed.
 // Bump CACHE_VERSION whenever index.html or the icons change.
-const CACHE_VERSION = 'clinic-walkthrough-v10';
+const CACHE_VERSION = 'clinic-walkthrough-v11';
 const PRECACHE = [
   './',
   './index.html',
@@ -17,7 +17,9 @@ const PRECACHE = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_VERSION)
-      .then(cache => cache.addAll(PRECACHE))
+      // Bypass the HTTP cache: GitHub Pages tells the browser to keep index.html
+      // for ten minutes, which would otherwise precache the version we just replaced.
+      .then(cache => cache.addAll(PRECACHE.map(url => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });
@@ -37,7 +39,7 @@ self.addEventListener('fetch', event => {
   // Navigations: network first so a redeploy is picked up, cache as the offline fallback.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
+      fetch(new Request(request.url, { cache: 'reload', credentials: 'same-origin' }))
         .then(response => {
           const copy = response.clone();
           caches.open(CACHE_VERSION).then(cache => cache.put('./index.html', copy));
