@@ -144,8 +144,12 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('source', type=pathlib.Path, help='the standalone HTML export')
     ap.add_argument('-o', '--output', type=pathlib.Path,
-                    default=pathlib.Path(__file__).resolve().parent.parent / 'index.html')
+                    help='where to write index.html (default: beside the source folder)')
     args = ap.parse_args()
+    # src/app.html -> ./index.html, app/src/app.html -> app/index.html: the generated page
+    # always lands one level above the source, which suits this repo and the kit alike.
+    if args.output is None:
+        args.output = args.source.resolve().parent.parent / 'index.html'
 
     args.output.write_text(patch(args.source.read_text(encoding='utf-8')), encoding='utf-8')
     print(f'wrote {args.output}')

@@ -27,6 +27,35 @@
 図面がまだ手元にない、または練習したい場合は `sample/sample-plan-1F.pdf` と
 `sample-plan-2F.pdf` を使ってください。このサンプル建物そのものです。
 
+## リポジトリにする場合（任意）
+
+使うだけならリポジトリは要りません。フォルダのまま Claude Code で開けば動きます。
+履歴を残したい／スマホから見られるように公開したい場合だけ、次のようにします。
+
+1. **private** のリポジトリを作る（⚠️ public にしないこと。図面は施主・設計者の資産です）
+2. **zip を展開した中身**をリポジトリの直下に置く（zip ファイルのまま置かないこと。
+   Claude は zip の中を編集できません）
+3. 自分の図面 PDF を `plans/` に入れる
+4. push する
+
+`.github/workflows/deploy-pages.yml` を同梱してあります。GitHub の
+**Settings → Pages → Source** を **GitHub Actions** にしておけば、push のたびに
+`app/` が自動で公開されます（private リポジトリでの Pages 公開は有料プランが必要です。
+無料プランなら公開されるのはサイトだけで、図面を含むリポジトリ自体は非公開のままにできません
+──その場合は Pages を使わず、ローカルで開いてください）。
+
+置いたあとのフォルダはこうなります。
+
+```
+あなたのリポジトリ/
+  README.md  PROMPT.md  GUIDE.md  LICENSE.txt
+  app/       ← ここが公開される
+  tools/
+  sample/
+  plans/     ← 自分の図面 PDF を置く
+  .github/workflows/deploy-pages.yml
+```
+
 ## 中身
 
 | ファイル | 説明 |

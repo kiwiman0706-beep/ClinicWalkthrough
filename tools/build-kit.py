@@ -103,6 +103,18 @@ def build(out_zip):
             shutil.copy2(KIT / doc, stage / doc)
         for name in ('make-sample-plan.py', 'sample-plan-1F.pdf', 'sample-plan-2F.pdf'):
             shutil.copy2(KIT / 'sample' / name, stage / 'sample' / name)
+        # Ready to become a repository: the Pages workflow publishes app/, not the root.
+        for path in sorted((KIT / 'repo').rglob('*')):
+            if path.is_file():
+                dest = stage / path.relative_to(KIT / 'repo')
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(path, dest)
+        (stage / 'plans').mkdir()
+        (stage / 'plans' / 'README.md').write_text(
+            '自分の図面 PDF をこのフォルダに置いてください。\n\n'
+            'リポジトリにする場合は **private** にしてください。'
+            '図面は施主・設計者の資産です。公開リポジトリに置くと誰でも見られます。\n',
+            encoding='utf-8')
         shutil.copy2(KIT / 'building-sample.js', stage / 'sample' / 'building-sample.js')
 
         out_zip.parent.mkdir(parents=True, exist_ok=True)

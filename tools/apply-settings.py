@@ -8,8 +8,8 @@ and run:
     python3 tools/apply-settings.py state.json
     pbpaste | python3 tools/apply-settings.py -
 
-which rewrites the `const savedState={...};` line in src/clinicwalkthrough.html
-and regenerates index.html. Passing `--clear` drops back to the built-in
+which rewrites the `const savedState={...};` line in the app source and
+regenerates index.html beside it. Passing `--clear` drops back to the built-in
 defaults. The built-in figures stay in the file either way, so the drawing
 baseline is never lost.
 """
@@ -21,8 +21,9 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SRC = ROOT / 'src' / 'clinicwalkthrough.html'
 ANCHOR = re.compile(r'^const savedState=.*;$', re.M)
+# This repo keeps the app at src/, the distributed kit at app/src/. Take whichever is there.
+CANDIDATES = ('src/clinicwalkthrough.html', 'app/src/walkthrough.html')
 LEVELS = ('0', '1', '2')
 HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
 FINISH_KEYS = ('wall', 'floor', 'ceiling', 'dado')
@@ -93,11 +94,14 @@ def main():
         payload = json.dumps(state, ensure_ascii=False, separators=(',', ':'))
         note = summarise(state)
 
-    source = SRC.read_text(encoding='utf-8')
+    src = next((ROOT / c for c in CANDIDATES if (ROOT / c).exists()), None)
+    if src is None:
+        fail('could not find the app source (looked for ' + ', '.join(CANDIDATES) + ')')
+    source = src.read_text(encoding='utf-8')
     if len(ANCHOR.findall(source)) != 1:
-        fail('could not find the savedState line in src/clinicwalkthrough.html')
-    SRC.write_text(ANCHOR.sub(lambda _: 'const savedState=' + payload + ';', source, count=1), encoding='utf-8')
-    subprocess.run([sys.executable, str(ROOT / 'tools' / 'apply-pwa-patch.py'), str(SRC)], check=True)
+        fail(f'could not find the savedState line in {src.relative_to(ROOT)}')
+    src.write_text(ANCHOR.sub(lambda _: 'const savedState=' + payload + ';', source, count=1), encoding='utf-8')
+    subprocess.run([sys.executable, str(ROOT / 'tools' / 'apply-pwa-patch.py'), str(src)], check=True)
     print('apply-settings: ' + note)
 
 
