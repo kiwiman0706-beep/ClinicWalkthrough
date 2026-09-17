@@ -1167,6 +1167,10 @@ html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:n
 .clinic-colors{display:flex;gap:10px;flex-wrap:wrap}
 .clinic-colors .clinic-field{flex:1 1 88px}
 #clinic-panel .btn{width:100%}
+.clinic-fixlist{max-height:190px;overflow:auto;border:1px solid var(--border);border-radius:8px;
+  padding:6px 8px;font-size:11px;line-height:1.6;background:var(--background)}
+.clinic-fixrow{display:flex;gap:8px;justify-content:space-between;white-space:nowrap}
+.clinic-fixrow .clinic-fixpos{color:var(--muted-foreground)}
 #clinic-state-text{width:100%;box-sizing:border-box;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.4;resize:vertical}
 #clinic-panel .form-range{width:100%}
 #clinic-fov-label,#clinic-distance-label{flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px}
@@ -1274,6 +1278,17 @@ html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:n
     </section>
 
     <section class="clinic-sec">
+      <h3>設備（設備図1・コンセント／弱電）</h3>
+      <label class="form-check"><input class="form-check-input" type="checkbox" id="clinic-fixtures"><span class="form-check-label">設備を表示する</span></label>
+      <div class="clinic-row">
+        <label class="form-check clinic-grow"><input class="form-check-input" type="checkbox" id="clinic-fix-power" checked><span class="form-check-label">コンセント</span></label>
+        <label class="form-check clinic-grow"><input class="form-check-input" type="checkbox" id="clinic-fix-weak" checked><span class="form-check-label">弱電</span></label>
+      </div>
+      <div class="clinic-fixlist" id="clinic-fix-list"></div>
+      <p class="text-small">図面の既定は H=250。天井付けなどは番号で指示してください（例：「12番は天井」）。</p>
+    </section>
+
+    <section class="clinic-sec">
       <h3>部屋ごとの仕上げ</h3>
       <label class="clinic-field">部屋<select class="form-select" id="clinic-room-pick"></select></label>
       <div class="clinic-colors">
@@ -1323,7 +1338,7 @@ html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:n
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-09-11b 検査室南の建具を修正</p>
+    <p class="text-small" id="clinic-build">版：2026-09-17 設備図1（コンセント・弱電）を追加</p>
   </aside>
 </div>
 </div>
@@ -1501,6 +1516,34 @@ function refreshRooms(){const first=document.createElement('option');first.value
 q('room').addEventListener('change',()=>{if(q('room').value==='')return;const r=roomStops[q('view').value][Number(q('room').value)];q('mode').value='inside';modeChange();rebuild();let x=r[1],z=r[2];if(!canStand(x,z)){let best=null;for(let dx=-1;dx<=1;dx+=.1)for(let dz=-1;dz<=1;dz+=.1)if(canStand(x+dx,z+dz)&&(!best||dx*dx+dz*dz<best[2]))best=[x+dx,z+dz,dx*dx+dz*dz];if(best)[x,z]=best;else{q('status').textContent='家具で立てる場所がありません。配置を調整してください。';return;}}q('fov').value=100;roomView=[[x,1.55,z],[r[3]??x,1.5,r[4]??z-2]];walkPos=null;render();});
 let architectureSolids=[],selected=0,planScale=35,planOx=20,planOy=20;
 const make=(name,type,x,z,w,d,h,r=0,source='仮寸法')=>({name,type,x,z,w,d,h,r,source});
+// 設備のマーカー。壁や家具と違って歩行の当たり判定には入れない。
+function marker(x,y,z,w,h,d,c){
+ const a=[x,y,z],b=[x+w,y,z],c1=[x+w,y,z+d],d1=[x,y,z+d],e=[x,y+h,z],f=[x+w,y+h,z],g=[x+w,y+h,z+d],h1=[x,y+h,z+d];
+ face([a,b,f,e],c,.95,0);face([d1,c1,g,h1],c,.95,0);face([a,d1,h1,e],c,.86,0);
+ face([b,c1,g,f],c,.86,0);face([e,f,g,h1],c,1.08,0);face([a,d1,c1,b],c,.78,0);
+}
+// 記号の種類 → [色, 表示名, 分類]。分類はパネルのチェックボックスに対応する。
+const FIX={
+ outlet:  ['#d9dcd6','2口コンセント','power'],
+ outletE: ['#8ebf6a','アース付2口コンセント','power'],
+ outletE1:['#e0a052','単独アース付コンセント','power'],
+ outletTV:['#b189d4','TVジャック付コンセント','power'],
+ outletWP:['#5cb0c6','防水コンセント','power'],
+ reeler:  ['#df6a89','リーラーコンセント（天井用）','power'],
+ lan:     ['#5a8fd6','LAN','weak'],   tel:['#5a8fd6','電話ジャック','weak'],
+ tv:      ['#5a8fd6','TVジャック','weak'], hdmi:['#5a8fd6','HDMI','weak'],
+ nc:      ['#5a8fd6','ナースコール','weak'], int:['#5a8fd6','インターホン','weak'],
+ sen:     ['#5a8fd6','センサー','weak'],  weak:['#5a8fd6','弱電','weak'],
+};
+const fx=(kind,x,z,h,note='')=>({kind,x,z,h,note});
+const fixtureItems=()=>fixtures[q('view').value]||[];
+const fixOn=k=>q('fixtures').checked&&FIX[k]&&q(FIX[k][2]==='power'?'fix-power':'fix-weak').checked;
+function fixtureLayer(){
+ for(const f of fixtureItems()){
+  if(!fixOn(f.kind))continue;
+  marker(f.x-.07,f.h,f.z-.045,.14,.09,.09,FIX[f.kind][0]);
+ }
+}
 // Base ceiling plus a patch for every room that overrides its ceiling colour. The patch
 // sits a few millimetres below so it wins over the base plane when you look up.
 function ceilingPlane(y,poly){face(poly,color('ceiling'),1,0);}
@@ -1699,6 +1742,47 @@ function fullFloor2(){
  box(2.5,0,9.97,2.4,.95,.045,'#89938d');
 }
 
+// 設備図1（コンセント・弱電）から拾った器具。番号は配列の順（1始まり）で、
+// 設定パネルの一覧と平面図の番号に対応する。h は取付高さ(m)、図面の既定は H=250。
+// 旧1階には設備図がないので空。
+const fixtures={
+ '0':[],
+ '1':[
+  fx('outlet',5.23,1.60,0.25),fx('outletE',6.73,1.60,0.25,'E'),fx('outlet',4.69,2.19,0.25),
+  fx('outletE1',6.81,2.20,0.25,'単E'),fx('outlet',2.69,3.15,0.25),fx('outlet',3.75,3.48,0.25),
+  fx('outlet',5.99,3.48,0.25),fx('outletE',4.71,3.75,0.25,'E×3'),fx('outletE',4.87,3.75,0.25,'E×3'),
+  fx('outletE',5.03,3.75,0.25,'E×3'),fx('outlet',6.81,3.72,0.25),fx('lan',4.82,3.88,0.25,'LAN×2'),
+  fx('lan',4.92,3.88,0.25,'LAN×2'),fx('outletE',0.37,4.76,0.25,'E'),fx('outlet',2.30,4.92,0.25),
+  fx('outlet',3.44,5.80,0.25),fx('outletE',4.71,5.77,0.25,'E×3'),fx('outletE',4.87,5.77,0.25,'E×3'),
+  fx('outletE',5.03,5.77,0.25,'E×3'),fx('lan',4.82,5.90,0.25,'LAN×2'),fx('lan',4.92,5.90,0.25,'LAN×2'),
+  fx('outlet',1.85,6.38,0.25),fx('outlet',0.94,6.63,0.25),fx('outlet',8.88,6.66,0.25),
+  fx('weak',10.62,6.90,0.25),fx('outletE',3.94,7.98,0.25,'E'),fx('lan',4.07,7.95,0.25,'LAN'),
+  fx('lan',4.17,7.95,0.25,'LAN'),fx('outlet',10.09,8.55,0.25),fx('outletE',10.59,8.94,0.25,'E'),
+  fx('lan',4.59,9.04,0.25,'LAN×3'),fx('lan',4.69,9.04,0.25,'LAN×3'),fx('lan',4.79,9.04,0.25,'LAN×3'),
+  fx('lan',5.85,9.04,0.25,'LAN×3'),fx('lan',5.95,9.04,0.25,'LAN×3'),fx('lan',6.05,9.04,0.25,'LAN×3'),
+  fx('outlet',0.36,9.16,0.25),fx('outletE',3.94,9.17,0.25,'E LAN×2'),fx('lan',4.08,9.19,0.25,'E LAN×2'),
+  fx('lan',4.18,9.19,0.25,'E LAN×2'),fx('outlet',4.45,9.17,0.25),fx('outlet',4.61,9.17,0.25),
+  fx('outlet',4.77,9.17,0.25),fx('outlet',4.93,9.17,0.25),fx('outlet',5.71,9.17,0.25),
+  fx('outlet',5.87,9.17,0.25),fx('outlet',6.03,9.17,0.25),fx('outlet',6.19,9.17,0.25),
+  fx('outlet',6.61,11.13,0.25),fx('outlet',6.86,11.91,0.25),fx('outlet',8.40,11.91,0.25)
+ ],
+ '2':[
+  fx('outletE',8.51,2.47,0.25,'E'),fx('outlet',7.25,2.75,0.25),fx('outlet',7.48,3.94,0.25),
+  fx('outlet',3.09,4.70,0.25),fx('outlet',5.19,5.72,0.25),fx('outletE',9.96,5.69,0.25,'E'),
+  fx('tv',10.09,5.70,0.25,'TV'),fx('tv',10.19,5.70,0.25,'TV'),fx('outletE',9.96,5.89,0.25,'E'),
+  fx('outletE',9.04,6.18,0.25,'E'),fx('outletE',9.86,6.18,0.25,'E×3'),fx('outletE',10.02,6.18,0.25,'E×3'),
+  fx('outletE',10.18,6.18,0.25,'E×3'),fx('lan',9.97,6.31,0.25,'LAN×2'),fx('lan',10.07,6.31,0.25,'LAN×2'),
+  fx('outlet',5.53,6.39,0.25),fx('outletE',5.69,6.39,0.25,'E×3'),fx('outletE',5.85,6.39,0.25,'E×3'),
+  fx('lan',5.59,6.52,0.25,'LAN×2'),fx('lan',5.69,6.52,0.25,'LAN×2'),fx('tel',6.01,6.52,0.25,'TEL'),
+  fx('outlet',2.95,7.20,0.25),fx('outletE',2.95,7.36,0.25,'E×4'),fx('lan',3.08,7.39,0.25,'LAN×2'),
+  fx('tel',7.32,7.43,0.25,'TEL'),fx('outletE',2.95,7.52,0.25,'E×4'),fx('lan',3.08,7.49,0.25,'LAN×2'),
+  fx('lan',7.32,7.53,0.25,'LAN'),fx('outletE',7.54,7.47,0.25,'E×3'),fx('outletE',7.54,7.63,0.25,'E×3'),
+  fx('lan',7.67,7.58,0.25,'LAN×2'),fx('outlet',2.95,7.68,0.25),fx('outletE',7.29,7.71,0.25,'E'),
+  fx('lan',7.67,7.68,0.25,'LAN×2'),fx('outlet',7.54,7.79,0.25),fx('outletE',7.24,8.04,0.25,'E'),
+  fx('outletE',7.54,8.40,0.25,'E'),fx('lan',7.51,8.56,0.25,'LAN'),fx('outlet',3.08,9.46,0.25),
+  fx('outlet',7.29,9.81,0.25),fx('outletE',7.73,11.67,0.25,'E'),fx('lan',7.70,11.82,0.25,'LAN')
+ ]
+};
 // フロアと、その3Dを描く関数の対応。
 const scenes={'0':scene0,'1':scene1,'2':scene2};
 // Room zones: the plan split into rectangles so each room can carry its own finish.
@@ -1932,6 +2016,13 @@ function drawPlan(){
   else{const p=corners(f).map(([u,v])=>[X(u),Y(v)]);c.moveTo(p[0][0],p[0][1]);for(const[u,v]of p.slice(1))c.lineTo(u,v);c.closePath();}
   c.fill();c.stroke();c.fillStyle=i===selected?'#ffffff':'#253a30';c.font='12px sans-serif';c.textAlign='center';c.fillText(String(i+1),x+w/2,y+d/2+4);
  }
+ for(const [i,f]of fixtureItems().entries()){
+  if(!fixOn(f.kind))continue;
+  const px=X(f.x),pz=Y(f.z);
+  c.fillStyle=FIX[f.kind][0];c.strokeStyle='#2c3a34';c.lineWidth=1;
+  c.beginPath();c.arc(px,pz,5,0,6.2832);c.fill();c.stroke();
+  c.fillStyle='#1d4f8c';c.font='bold 10px sans-serif';c.textAlign='left';c.fillText('#'+(i+1),px+6,pz-4);
+ }
  c.fillStyle=ink;c.font='12px sans-serif';c.textAlign='center';
  const rooms=roomLabels[q('view').value];
  for(const [x,z,t]of rooms){const tw=c.measureText(t).width;c.fillStyle=bg;c.globalAlpha=.86;c.fillRect(X(x)-tw/2-2,Y(z)-11,tw+4,15);c.globalAlpha=1;c.fillStyle=ink;c.fillText(t,X(x),Y(z));}
@@ -2157,7 +2248,7 @@ q('blender').addEventListener('click',()=>{
 
 function encode(fs){const data=[];for(const f of fs){const h=f.c.slice(1),rgb=[0,2,4].map(i=>clamp(parseInt(h.slice(i,i+2),16)/255*f.k,0,1));for(let i=1;i<f.v.length-1;i++)for(const p of [f.v[0],f.v[i],f.v[i+1]])data.push(...p,...rgb,f.mat||0);}return data;}
 function rebuild(){
-  faces=[];glassFaces=[];signs=[];solids=[];floorAreas=[];glassBarriers=[];scenes[q('view').value]();architectureSolids=solids.slice();renderFurniture();
+  faces=[];glassFaces=[];signs=[];solids=[];floorAreas=[];glassBarriers=[];scenes[q('view').value]();architectureSolids=solids.slice();renderFurniture();fixtureLayer();
   if(gl){const data=encode(faces);count=data.length/7;gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data.concat(encode(glassFaces))),gl.DYNAMIC_DRAW);}
   dirty=false;
 }
@@ -2261,6 +2352,25 @@ function tick(t){if(!keys.size||isOrbit()||isPlan()){walking=false;return;}const
 document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(!['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)||isOrbit()||isPlan()||!root.contains(document.activeElement)||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;e.preventDefault();keys.add(k);if(!walking){walking=true;lastTime=0;requestAnimationFrame(tick);}});
 document.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>keys.clear());document.addEventListener('visibilitychange',()=>{if(document.hidden)keys.clear();});root.addEventListener('focusout',e=>{if(!root.contains(e.relatedTarget))keys.clear();});
 
+// ---- 設備リスト ---------------------------------------------------------
+function refreshFixtures(){
+ const list=q('fix-list'),rows=fixtureItems().map((f,i)=>{
+  const g=FIX[f.kind]||['#888',f.kind,'power'],row=document.createElement('div');
+  row.className='clinic-fixrow';
+  const dot=document.createElement('b');dot.textContent='■';dot.style.color=g[0];
+  const name=document.createElement('span');name.textContent=`${i+1}. ${g[1]}${f.note?'（'+f.note+'）':''}`;
+  const pos=document.createElement('span');pos.className='clinic-fixpos';
+  pos.textContent=`X${f.x.toFixed(2)} Y${f.z.toFixed(2)} H=${Math.round(f.h*1000)}`;
+  const left=document.createElement('span');left.append(dot,' ',name);
+  row.append(left,pos);return row;
+ });
+ if(!rows.length){const e=document.createElement('div');e.className='clinic-fixrow';
+  e.textContent='このフロアの設備図はまだ取り込んでいません。';rows.push(e);}
+ list.replaceChildren(...rows);
+}
+for(const n of ['fixtures','fix-power','fix-weak'])
+ q(n).addEventListener('change',()=>{dirty=true;render();});
+
 // ---- per-room finishes -------------------------------------------------
 function refreshRoomPick(){
  const keep=q('room-pick').value,names=roomNames();
@@ -2307,7 +2417,7 @@ function refreshViewpoints(){
   Array.from(q('position').options).forEach((o,i)=>o.textContent=v.labels[i]);
 }
 q('view').addEventListener('change',()=>{
-  refreshViewpoints();refreshItems();refreshRooms();refreshRoomPick();dirty=true;reset();
+  refreshViewpoints();refreshItems();refreshRooms();refreshRoomPick();refreshFixtures();dirty=true;reset();
 });
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();q('render-error').hidden=false;});
 for(const [list,key,sel]of [['floor-tabs','view','view'],['mode-tabs','mode','mode']])
@@ -2323,7 +2433,7 @@ q('panel-close').addEventListener('click',()=>showPanel(false));
 scrim.addEventListener('click',()=>showPanel(false));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){e.preventDefault();showPanel(false);}});
 if(Object.keys(savedState).length){try{applyState(savedState);}catch(e){console.warn('savedState',e);}}
-refreshViewpoints();refreshRooms();refreshRoomPick();new ResizeObserver(render).observe(canvas);new ResizeObserver(render).observe(q('plan'));modeChange();
+refreshViewpoints();refreshRooms();refreshRoomPick();refreshFixtures();new ResizeObserver(render).observe(canvas);new ResizeObserver(render).observe(q('plan'));modeChange();
 })();
 </script>
 
