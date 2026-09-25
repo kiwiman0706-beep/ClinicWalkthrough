@@ -1273,7 +1273,10 @@ html>body{padding:0}</style>
         <label class="form-check clinic-grow"><input class="form-check-input" type="checkbox" id="clinic-r-dado"><span class="form-check-label">腰壁をつける</span></label>
         <label class="clinic-field">腰壁の色<input class="form-control form-control-color" type="color" id="clinic-r-dado-color" value="#7c5c3c"></label>
       </div>
-      <label class="clinic-field">腰壁の高さ <span id="clinic-dado-value">900mm</span><input class="form-range" type="range" min="600" max="1500" step="50" value="900" id="clinic-dado"></label>
+      <label class="clinic-field">腰壁の高さ <span id="clinic-dado-value">900mm</span><input class="form-range" type="range" min="600" max="1500" step="5" value="900" id="clinic-dado"></label>
+      <div class="clinic-row">
+        <button type="button" class="btn" id="clinic-design">設計の仕様を反映</button>
+      </div>
       <div class="clinic-row">
         <button type="button" class="btn" id="clinic-room-clear">この部屋を全体設定に戻す</button>
         <button type="button" class="btn" id="clinic-room-clear-all">このフロアを全部戻す</button>
@@ -1311,7 +1314,7 @@ html>body{padding:0}</style>
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-09-17 設備図1（コンセント・弱電）を追加</p>
+    <p class="text-small" id="clinic-build">版：2026-09-25 2Fマテリアル反映</p>
   </aside>
 </div>
 </div>
@@ -1756,6 +1759,21 @@ const fixtures={
   fx('outlet',7.29,9.81,0.25),fx('outletE',7.73,11.67,0.25,'E'),fx('lan',7.70,11.82,0.25,'LAN')
  ]
 };
+// 設計事務所のマテリアル表（2F・2026-09「受付カウンター詳細図・マテリアル」）。
+// 色は仕様書のサンプル画像から拾った代表色。床は全室、壁・天井・腰壁は患者ゾーンのみ
+// （仕様書が「待合室・心療内科診察室：壁・天井」と限定しているため）。
+// パネルの「設計の仕様を反映」で入り、「このフロアを全部戻す」で消せる。
+const designScheme={
+ '2':{
+  name:'2F 内装マテリアル（設計 2026-09）',
+  dado:935,                       // 展開図の腰 935 ＋ 見切り 35
+  counter:'#79583a',              // 心療内科受付カウンター アイカ TJ-2062K
+  wall:'#e6e5e3',                 // ビニールクロス 東リ WVP8473
+  floorAll:'#96785d',             // 床 木目シート 東リ ロイヤルウッド PWT4290
+  patient:['待合','心療内科','受付','診療室1','診療室2','患者用WC','処置スペース'],
+  dadoColor:'#7a614a'             // 腰 木目シート 東リ ハーデック DEC8296
+ }
+};
 // フロアと、その3Dを描く関数の対応。
 const scenes={'0':scene0,'1':scene1,'2':scene2};
 // Room zones: the plan split into rectangles so each room can carry its own finish.
@@ -1893,7 +1911,7 @@ for(const f of FLOORS)roomFinish[f]={};
 
 // The drawing-derived defaults. Everything the app exports is a diff against this,
 // so a pasted-back state keeps its meaning even after more furniture is added.
-const BASE={layouts:JSON.parse(JSON.stringify(layouts)),
+const BASE={layouts:JSON.parse(JSON.stringify(layouts)),finishes:{},
  globals:{preset:q('preset').value,wall:q('wall').value,floor:q('floor').value,counter:q('counter').value,
   ceiling:q('ceiling').value,pattern:q('pattern').value,dado:Number(q('dado').value)}};
 // Tweaks made in the app and pasted back in with tools/apply-settings.py.
@@ -2026,12 +2044,16 @@ function applyState(st){
  if(typeof g.preset==='string'&&presets[g.preset])q('preset').value=g.preset;
  if(['wood','tile','plain'].includes(g.pattern))q('pattern').value=g.pattern;
  if(Number.isFinite(g.dado))q('dado').value=clamp(g.dado,600,1500);
- const fin={'0':{},'1':{},'2':{}};
- for(const lv of FLOORS){const src=(st.finishes||{})[lv]||{};
-  for(const [name,o]of Object.entries(src)){
+ // 既定（設計の仕様を当てた状態）から出発し、状態が持つフロアだけ丸ごと差し替える。
+ const fin=JSON.parse(JSON.stringify(BASE.finishes));
+ for(const lv of FLOORS){
+  if(!(st.finishes||{})[lv])continue;
+  const out={};
+  for(const [name,o]of Object.entries(st.finishes[lv])){
    if(!zones[lv].some(r=>r[0]===name)||!o||typeof o!=='object')continue;
    const kept={};for(const k of ['wall','floor','ceiling','dado'])if(typeof o[k]==='string'&&hex.test(o[k]))kept[k]=o[k];
-   if(Object.keys(kept).length)fin[lv][name]=kept;}}
+   if(Object.keys(kept).length)out[name]=kept;}
+  fin[lv]=out;}
  roomFinish=fin;
  layouts=JSON.parse(JSON.stringify(BASE.layouts));
  const lim={x:[0,PLAN[0]],z:[0,PLAN[1]],w:[.2,5],d:[.2,5],h:[.2,2.4]};let moved=0;
@@ -2053,7 +2075,7 @@ function stateText(){
  for(const [k,v]of Object.entries(BASE.globals)){const now=k==='dado'?Number(q(k).value):q(k).value;if(now!==v)g[k]=now;}
  const finishes={},furniture={};
  for(const lv of FLOORS){
-  if(Object.keys(roomFinish[lv]).length)finishes[lv]=roomFinish[lv];
+  if(JSON.stringify(roomFinish[lv])!==JSON.stringify(BASE.finishes[lv]||{}))finishes[lv]=roomFinish[lv];
   const out={};
   layouts[lv].forEach((f,i)=>{const b=BASE.layouts[lv][i],d={};
    for(const k of ['x','z','w','d','h'])if(Math.abs(f[k]-b[k])>1e-6)d[k]=Number(f[k].toFixed(3));
@@ -2346,6 +2368,7 @@ for(const n of ['fixtures','fix-power','fix-weak'])
 
 // ---- per-room finishes -------------------------------------------------
 function refreshRoomPick(){
+ q('design').disabled=!designScheme[q('view').value];
  const keep=q('room-pick').value,names=roomNames();
  q('room-pick').replaceChildren(...names.map(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;return o;}));
  q('room-pick').value=names.includes(keep)?keep:names[0];
@@ -2365,6 +2388,19 @@ function syncRoomFinish(){
  q('room-info').textContent=set?`この部屋は ${set} 項目を個別指定中（色を変えると個別指定になります）`
   :'全体設定のままです。色を変えるとこの部屋だけに適用されます。';
 }
+// 仕様書の配色を roomFinish に流し込む。編集も解除も普段どおりできる。
+function applyDesign(){
+ const v=q('view').value,d=designScheme[v];if(!d)return 0;
+ const out={};
+ for(const name of roomNames()){
+  const o={floor:d.floorAll};
+  if(d.patient.includes(name)){o.wall=d.wall;o.ceiling=d.wall;o.dado=d.dadoColor;}
+  out[name]=o;
+ }
+ roomFinish[v]=out;q('dado').value=d.dado;
+ if(d.counter)q('counter').value=d.counter;
+ return Object.keys(out).length;
+}
 function setRoomFinish(kind,value){
  const f=roomFinish[q('view').value],name=q('room-pick').value;
  (f[name]||(f[name]={}))[kind]=value;
@@ -2377,6 +2413,13 @@ q('r-dado').addEventListener('change',()=>setRoomFinish('dado',q('r-dado').check
 q('r-dado-color').addEventListener('input',()=>{q('r-dado').checked=true;setRoomFinish('dado',q('r-dado-color').value);});
 q('dado').addEventListener('input',()=>{q('dado-value').textContent=q('dado').value+'mm';dirty=true;render();});
 q('room-pick').addEventListener('change',syncRoomFinish);
+q('design').addEventListener('click',()=>{
+ const n=applyDesign();
+ syncRoomFinish();refreshRoomPick();
+ q('room-info').textContent=n?`${designScheme[q('view').value].name} を ${n} 室に反映しました。「このフロアを全部戻す」で解除できます。`
+  :'このフロアには設計の仕様書がまだありません。';
+ dirty=true;render();
+});
 q('room-clear').addEventListener('click',()=>{delete roomFinish[q('view').value][q('room-pick').value];syncRoomFinish();dirty=true;render();});
 q('room-clear-all').addEventListener('click',()=>{roomFinish[q('view').value]={};syncRoomFinish();dirty=true;render();});
 q('preset').addEventListener('change',()=>{let p=presets[q('preset').value];['wall','floor','counter','pattern','ceiling'].forEach((n,i)=>q(n).value=p[i]);syncRoomFinish();dirty=true;render();});
@@ -2405,6 +2448,10 @@ q('panel-btn').addEventListener('click',()=>showPanel(panel.hidden));
 q('panel-close').addEventListener('click',()=>showPanel(false));
 scrim.addEventListener('click',()=>showPanel(false));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){e.preventDefault();showPanel(false);}});
+for(const v of FLOORS)if(designScheme[v]){const keep=q('view').value;q('view').value=v;applyDesign();q('view').value=keep;}
+// 設計の仕様を当てた状態が「既定」。書き出す差分はここを基準にする。
+BASE.finishes=JSON.parse(JSON.stringify(roomFinish));
+for(const k of Object.keys(BASE.globals))BASE.globals[k]=k==='dado'?Number(q(k).value):q(k).value;
 if(Object.keys(savedState).length){try{applyState(savedState);}catch(e){console.warn('savedState',e);}}
 refreshViewpoints();refreshRooms();refreshRoomPick();refreshFixtures();new ResizeObserver(render).observe(canvas);new ResizeObserver(render).observe(q('plan'));modeChange();
 })();
