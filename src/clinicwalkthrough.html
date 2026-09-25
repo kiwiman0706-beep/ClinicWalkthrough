@@ -1297,6 +1297,8 @@ html>body{padding:0}</style>
       <label class="form-check"><input class="form-check-input" type="checkbox" id="clinic-open" checked><span class="form-check-label">室内ドアをすべて開く</span></label>
       <label class="form-check"><input class="form-check-input" type="checkbox" id="clinic-elevator"><span class="form-check-label">EV扉も開く</span></label>
       <label class="form-check" id="clinic-entrance-label"><input class="form-check-input" type="checkbox" id="clinic-entrance"><span class="form-check-label">玄関の自動ドアを開く</span></label>
+      <label class="form-check"><input class="form-check-input" type="checkbox" id="clinic-mpart"><span class="form-check-label">可動間仕切り・カーテンを開ける</span></label>
+      <p class="text-small">可動間仕切り＝スクリーンウォール／カーテン／電動軽量シャッター。既定は図面どおり閉じた状態です。</p>
     </section>
 
     <section class="clinic-sec">
@@ -1322,7 +1324,7 @@ html>body{padding:0}</style>
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-09-25b 腰壁の作り込み・アクセント壁</p>
+    <p class="text-small" id="clinic-build">版：2026-09-25c 可動間仕切り・2F設備図の位置補正</p>
   </aside>
 </div>
 </div>
@@ -1422,6 +1424,47 @@ function doorZ(x,z,d,type='slide',direction=1){
  box(x-.02,0,z-.025,.14,h,.04,'#c8bba6');box(x-.02,0,z+d-.015,.14,h,.04,'#c8bba6');
  if(q('open').checked&&type!=='shut'){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(direction>0?x:x-d,0,z,d,h,.045,'#d4c9b8');}
  else{box(x,0,z,.045,h,d,'#d4c9b8');box(x-.025,.94,z+d-.12,.025,.12,.025,'#727977');}
+}
+// ---- 可動間仕切り -------------------------------------------------------
+// 平面図の「可動間仕切り（パナソニック）スクリーンウォール」「カーテン」
+// 「電動軽量シャッター」。図面が描いている＝閉じた状態が既定で、
+// パネルの「可動間仕切り・カーテンを開ける」で畳んだ状態になる。
+const partsOpen=()=>q('mpart').checked;
+const PART={
+ screen :{c:'#e7e2d7',t:.045,pitch:.45,gap:.004,top:2.10,solid:true },
+ curtain:{c:'#cbd3ce',t:.055,pitch:.11,gap:0,   top:2.10,solid:false},
+ shutter:{c:'#b6bab9',t:.045,pitch:0,  gap:0,   top:2.14,solid:true }};
+// axis:'x' は z=at の面を a0→a1 に、'z' は x=at の面を a0→a1 に張る。
+// stack は開けたときに畳んで寄る側（-1: a0 側／1: a1 側）。base は下端（シャッターはカウンター天板）。
+// カーテンは閉じていても当たり判定を持たない（くぐって歩けるように）。
+function partition(axis,at,a0,a1,kind,stack=-1,base=0){
+ const g=PART[kind],k=lowWalls()?1.05/2.6:1,y0=base*k,top=g.top*k;
+ if(top-y0<.05)return;
+ const open=partsOpen(),through=open||!g.solid;
+ let u0=a0,u1=a1;
+ if(open){const w=Math.min(.32,(a1-a0)*.22);if(stack>0)u0=a1-w;else u1=a0+w;}
+ // p0→p1 の帯を、面から d だけ張り出した厚みで、高さ y..y+h に置く。
+ const put=(p0,p1,d,y,h,c,solid)=>{
+  if(p1-p0<.002||h<.002)return;
+  const f=(solid&&!through)?box:marker;
+  if(axis==='x')f(p0,y,at-g.t/2-d,p1-p0,h,g.t+d*2,c,2);
+  else f(at-g.t/2-d,y,p0,g.t+d*2,h,p1-p0,c,2);};
+ if(g.pitch){
+  const n=Math.max(2,Math.round((u1-u0)/g.pitch));
+  for(let i=0;i<n;i++){
+   const p0=u0+(u1-u0)*i/n,p1=u0+(u1-u0)*(i+1)/n;
+   // カーテンは一枚おきに膨らませてひだに、畳んだときはどれも少し膨らむ。
+   const d=kind==='curtain'?(i%2?.022:0):(open?.012:0);
+   put(p0+g.gap,p1-g.gap,d,y0,top-y0,g.c,true);
+  }
+ }else if(!open){
+  // シャッターは一枚のスラット面。100mm ごとに横目地を入れる。
+  // 開けたときは巻き上がってシャッターボックスに収まる（面は描かない）。
+  put(a0,a1,0,y0,top-y0,g.c,true);
+  for(let y=y0+.10;y<top-.02;y+=.10)put(a0,a1,.006,y,.008,'#9ea2a1',false);
+ }
+ // 上のレール（シャッターは天井際のシャッターボックス）。
+ if(!lowWalls())put(a0,a1,kind==='shutter'?.05:.02,top,kind==='shutter'?.26:.07,'#9aa0a0',false);
 }
 function wallX(z,x0,x1,doors=[]){let p=x0;for(const d of doors){if(d[0]>p)wall(p,z,d[0]-p,.10);doorX(d[0],z,d[1],d[2]||'hinge',d[3]||1);p=d[0]+d[1];}if(p<x1)wall(p,z,x1-p,.10);}
 function wallZ(x,z0,z1,doors=[]){let p=z0;for(const d of doors){if(d[0]>p)wall(x,p,.10,d[0]-p);doorZ(x,d[0],d[1],d[2]||'slide',d[3]||1);p=d[0]+d[1];}if(p<z1)wall(x,p,.10,z1-p);}
@@ -1694,15 +1737,23 @@ function scene2(){
  floor(2.5,2.09,4.58,6.10);floor(4.58,3.92,8.77,6.10);floor(2.5,6.10,4.48,8.0);
  floor(.1,4.60,2.40,9.90);floor(4.58,6.20,8.77,10);floor(4.68,2.19,6.28,3.82);floor(.1,.1,2.40,4.50);
  wall(.0,.1,.1,9.9);wallX(.1,0,2.5);wallX(4.50,0,2.5,[[.58,.87,'hinge',-1]]);wallX(9.90,0,2.5);
+ // 2つめの建具（z=4.64〜5.54）が図面の「（ダイケン）簡易遮音ドア」。
  wallZ(2.4,.1,6.10,[[3.45,.95,'hinge',-1],[4.64,.90,'hinge',-1]]);wallZ(2.4,6.10,9.90,[[8.78,.90,'slide']]);
  for(let i=0;i<9;i++)box(.20,i*.15,.55+i*.27,.95,.15,.27,'#d5d3cc');
 
  wallZ(4.56,2.09,3.82,[[2.43,.88,'slide']]);wall(4.56,3.82,4.20,.10);wallZ(8.76,3.92,8.25,[[4.90,.90,'slide'],[7.32,.90,'slide']]);wall(6.28,2.09,.1,1.73);wallX(2.09,4.66,6.28);
  wallX(7.98,2.50,4.48,[[3.87,.61,'slide']]);wall(4.48,6.08,.10,1.98);
  box(2.50,0,6.10,1.35,.85,.37,color('counter'));box(2.47,.85,6.05,1.41,.06,.48,'#f2eee7');
- if(!lowWalls())wallBox(2.50,2.14,6.1,1.35,.46,.10);box(3.85,0,6.10,.62,.85,.37,color('counter'));box(3.82,.85,6.05,.68,.06,.48,'#f2eee7');
+ // 受付開口の垂れ壁は図面の W1450 シャッターボックスに合わせて 2.50〜4.06。
+ if(!lowWalls())wallBox(2.50,2.14,6.1,1.56,.46,.10);box(3.85,0,6.10,.62,.85,.37,color('counter'));box(3.82,.85,6.05,.68,.06,.48,'#f2eee7');
+ // 電動軽量シャッター W1450（ラッチ付）。カウンター天板から垂れ壁の下端まで。
+ partition('x',6.10,2.50,4.06,'shutter',-1,.85);
  wallX(6.10,4.58,8.76,[[5.14,.90,'slide'],[7.81,.90,'slide']]);
- wall(6.89,6.2,.10,2.6);wallZ(4.48,8.08,10.0,[[9.00,.70,'slide']]);fullFloor2();
+ // 診療室1／2 の間は可動間仕切り（パナソニック）スクリーンウォール。開けると待合側に畳まれる。
+ partition('z',6.94,6.20,8.80,'screen',-1);
+ // 診療室のカーテン2本（エコー前と東端）。閉じていてもくぐれる扱い。
+ partition('x',8.67,4.75,5.40,'curtain',-1);partition('x',8.67,8.10,8.75,'curtain',1);
+ wallZ(4.48,8.08,10.0,[[9.00,.70,'slide']]);fullFloor2();
  elevator();
  if(!isOrbit()&&!isPlan()){ceilingPlane(2.6,[[0,2.6,.1],[10.8,2.6,.1],[10.8,2.6,12.5],[0,2.6,12.5]]);roomCeilings(2.6);}
 }
@@ -1719,6 +1770,8 @@ function fullFloor1(){
  // 検査室とX線室前室は X=7.04〜8.46 が開口。図面では東側は通しの壁で、建具はない。
  wallX(9.52,8.46,10.70);
  floor(7.04,9.52,8.56,11.07);floor(8.66,9.62,10.70,12.40);
+ // MRI室のカーテン（平面図の波線）。レールは X=9.24、Y=11.29〜12.28。
+ partition('z',9.24,11.29,12.28,'curtain',-1);
  wallZ(8.56,9.62,12.40,[[10.06,.90,'hinge',1]]);
  floor(6.88,11.17,7.64,12.4);floor(7.74,11.17,8.56,12.4);
  wallX(11.07,6.88,8.56,[[6.98,.66,'slide'],[7.80,.70,'slide']]);
@@ -1749,7 +1802,7 @@ function fullFloor2(){
 const fixtures={
  '0':[],
  '1':[
-  fx('outlet',5.23,1.60,0.25),fx('outletE',6.73,1.60,0.25,'E'),fx('outlet',4.69,2.19,0.25),
+  fx('outlet',5.23,1.60,0.25),fx('outletE',6.73,1.60,1.60,'E H=1600'),fx('outlet',4.69,2.19,0.25),
   fx('outletE1',6.81,2.20,0.25,'単E'),fx('outlet',2.69,3.15,0.25),fx('outlet',3.75,3.48,0.25),
   fx('outlet',5.99,3.48,0.25),fx('outletE',4.71,3.75,0.25,'E×3'),fx('outletE',4.87,3.75,0.25,'E×3'),
   fx('outletE',5.03,3.75,0.25,'E×3'),fx('outlet',6.81,3.72,0.25),fx('lan',4.82,3.88,0.25,'LAN×2'),
@@ -1768,20 +1821,23 @@ const fixtures={
   fx('outlet',6.61,11.13,0.25),fx('outlet',6.86,11.91,0.25),fx('outlet',8.40,11.91,0.25)
  ],
  '2':[
-  fx('outletE',8.51,2.47,0.25,'E'),fx('outlet',7.25,2.75,0.25),fx('outlet',7.48,3.94,0.25),
-  fx('outlet',3.09,4.70,0.25),fx('outlet',5.19,5.72,0.25),fx('outletE',9.96,5.69,0.25,'E'),
-  fx('tv',10.09,5.70,0.25,'TV'),fx('tv',10.19,5.70,0.25,'TV'),fx('outletE',9.96,5.89,0.25,'E'),
-  fx('outletE',9.04,6.18,0.25,'E'),fx('outletE',9.86,6.18,0.25,'E×3'),fx('outletE',10.02,6.18,0.25,'E×3'),
-  fx('outletE',10.18,6.18,0.25,'E×3'),fx('lan',9.97,6.31,0.25,'LAN×2'),fx('lan',10.07,6.31,0.25,'LAN×2'),
-  fx('outlet',5.53,6.39,0.25),fx('outletE',5.69,6.39,0.25,'E×3'),fx('outletE',5.85,6.39,0.25,'E×3'),
-  fx('lan',5.59,6.52,0.25,'LAN×2'),fx('lan',5.69,6.52,0.25,'LAN×2'),fx('tel',6.01,6.52,0.25,'TEL'),
-  fx('outlet',2.95,7.20,0.25),fx('outletE',2.95,7.36,0.25,'E×4'),fx('lan',3.08,7.39,0.25,'LAN×2'),
-  fx('tel',7.32,7.43,0.25,'TEL'),fx('outletE',2.95,7.52,0.25,'E×4'),fx('lan',3.08,7.49,0.25,'LAN×2'),
-  fx('lan',7.32,7.53,0.25,'LAN'),fx('outletE',7.54,7.47,0.25,'E×3'),fx('outletE',7.54,7.63,0.25,'E×3'),
-  fx('lan',7.67,7.58,0.25,'LAN×2'),fx('outlet',2.95,7.68,0.25),fx('outletE',7.29,7.71,0.25,'E'),
-  fx('lan',7.67,7.68,0.25,'LAN×2'),fx('outlet',7.54,7.79,0.25),fx('outletE',7.24,8.04,0.25,'E'),
-  fx('outletE',7.54,8.40,0.25,'E'),fx('lan',7.51,8.56,0.25,'LAN'),fx('outlet',3.08,9.46,0.25),
-  fx('outlet',7.29,9.81,0.25),fx('outletE',7.73,11.67,0.25,'E'),fx('lan',7.70,11.82,0.25,'LAN')
+  fx('outletE',5.76,2.47,0.25,'E'),fx('outletE',10.11,2.64,0.25,'E'),fx('outlet',4.50,2.75,0.25),
+  fx('outlet',4.73,3.94,0.25),fx('outlet',0.34,4.70,0.25),fx('outlet',8.68,4.75,0.25),
+  fx('outletE',10.60,4.78,1.40,'E H=1400'),fx('outletE1',10.60,5.58,0.25,'単E'),fx('outlet',2.44,5.72,0.25),
+  fx('outletE',7.21,5.69,0.25,'E'),fx('tv',7.34,5.70,2.10,'TV H2100'),fx('tv',7.44,5.70,2.10,'TV H2100'),
+  fx('outletE',7.21,5.89,0.25,'E'),fx('outletE',6.29,6.18,0.25,'E'),fx('outletE',7.11,6.18,0.25,'E×3'),
+  fx('outletE',7.27,6.18,0.25,'E×3'),fx('outletE',7.43,6.18,0.25,'E×3'),fx('lan',7.22,6.31,0.25,'LAN×2'),
+  fx('lan',7.32,6.31,0.25,'LAN×2'),fx('outlet',2.78,6.39,0.25),fx('outletE',2.94,6.39,0.25,'E×3'),
+  fx('outletE',3.10,6.39,0.25,'E×3'),fx('lan',2.84,6.52,0.25,'LAN×2'),fx('lan',2.94,6.52,0.25,'LAN×2'),
+  fx('tel',3.26,6.52,0.25,'TEL'),fx('outletE',10.60,6.55,1.60,'E H=1600'),fx('outlet',0.20,7.20,0.25),
+  fx('outletE',0.20,7.36,0.25,'E×4'),fx('lan',0.33,7.39,0.25,'LAN×2'),fx('tel',4.57,7.43,0.25,'TEL'),
+  fx('outletE',0.20,7.52,0.25,'E×4'),fx('lan',0.33,7.49,0.25,'LAN×2'),fx('lan',4.57,7.53,0.25,'LAN'),
+  fx('outletE',4.79,7.47,0.25,'E×3'),fx('outletE',4.79,7.63,0.25,'E×3'),fx('lan',4.92,7.58,0.25,'LAN×2'),
+  fx('outlet',0.20,7.68,0.25),fx('outletE',4.54,7.71,0.25,'E'),fx('lan',4.92,7.68,0.25,'LAN×2'),
+  fx('outlet',4.79,7.79,0.25),fx('outletE',4.49,8.04,0.25,'E'),fx('outletE',4.79,8.40,0.25,'E'),
+  fx('lan',4.76,8.56,0.25,'LAN'),fx('outlet',8.68,8.97,0.25),fx('outlet',0.33,9.46,0.25),
+  fx('outlet',4.54,9.81,0.25),fx('outlet',9.92,10.19,0.25),fx('outletE',4.98,11.67,0.25,'E'),
+  fx('lan',4.95,11.82,0.25,'LAN'),fx('outlet',8.68,11.95,0.25),fx('outlet',9.92,12.30,0.25)
  ]
 };
 // 設計事務所のマテリアル表（2F・2026-09「受付カウンター詳細図・マテリアル」）。
@@ -2466,7 +2522,7 @@ q('design').addEventListener('click',()=>{
 q('room-clear').addEventListener('click',()=>{delete roomFinish[q('view').value][q('room-pick').value];syncRoomFinish();dirty=true;render();});
 q('room-clear-all').addEventListener('click',()=>{roomFinish[q('view').value]={};syncRoomFinish();dirty=true;render();});
 q('preset').addEventListener('change',()=>{let p=presets[q('preset').value];['wall','floor','counter','pattern','ceiling'].forEach((n,i)=>q(n).value=p[i]);syncRoomFinish();dirty=true;render();});
-['wall','floor','counter','pattern','ceiling','trim','skirt','cut','open','elevator','entrance'].forEach(n=>q(n).addEventListener('input',()=>{syncRoomFinish();dirty=true;render();}));
+['wall','floor','counter','pattern','ceiling','trim','skirt','cut','open','elevator','entrance','mpart'].forEach(n=>q(n).addEventListener('input',()=>{syncRoomFinish();dirty=true;render();}));
 ['fov','distance'].forEach(n=>q(n).addEventListener('input',render));q('mode').addEventListener('change',modeChange);
 q('position').addEventListener('change',()=>{q('mode').value='inside';roomView=null;walkPos=null;lookYaw=0;lookPitch=0;modeChange();});
 // The 視点 chip's five options are named by the building, so they follow the floor.

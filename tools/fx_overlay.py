@@ -1,10 +1,11 @@
 import pymupdf, json, sys
 from PIL import Image, ImageDraw, ImageFont
 U='/root/.claude/uploads/2a59a3b0-5e20-5251-8357-801db57cd5ef/'
-K=0.0211667; X0=175.8; Y0=110.7; S=95.0; M=30.0
+from fx_syms import originX
+K=0.0211667; Y0=110.7; S=95.0; M=30.0
 F='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 def render(f, rows, out):
-    d=pymupdf.open(U+f); pg=d[0]
+    d=pymupdf.open(U+f); pg=d[0]; X0=originX(f)
     mat=pymupdf.Matrix(K*S,0,0,K*S,-X0*K*S+M,-Y0*K*S+M)
     clip=pymupdf.Rect(X0-M/(K*S)/1, Y0-M/(K*S), X0+11.2/K, Y0+12.9/K)
     pix=pg.get_pixmap(matrix=mat, clip=clip, colorspace=pymupdf.csRGB, alpha=False)

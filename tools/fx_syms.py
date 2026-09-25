@@ -1,8 +1,15 @@
 import pymupdf, math, collections
 U='/root/.claude/uploads/2a59a3b0-5e20-5251-8357-801db57cd5ef/'
-K=0.0211667; X0=175.8; Y0=110.7
+K=0.0211667; Y0=110.7
+# 図面の原点（appX=0 にあたる通り芯のページ座標）はシートごとに違う。
+# 1F 系は x=175.8、2F 系は x=305.8。縦方向は両方 y=110.7。
+# 通り芯の間隔（118.1pt=2,500 / 392.1pt=8,300）で同定した。
+ORIGIN_X={'1F':175.8,'2F':305.8}
+def originX(f):
+    return ORIGIN_X['2F'] if '2F' in f else ORIGIN_X['1F']
 def syms(f):
     d=pymupdf.open(U+f); p=d[0]
+    X0=originX(f)
     A=lambda x,y:((x-X0)*K,(y-Y0)*K)
     out=[]; texts=[]
     for dr in p.get_drawings():

@@ -31,12 +31,27 @@ NAME={'outlet':'2口コンセント','outletE':'アース付2口コンセント'
  'outletTV':'TVジャック付コンセント','outletWP':'防水コンセント','reeler':'リーラーコンセント（天井用）',
  'lan':'LAN','tel':'電話ジャック','hdmi':'HDMI','tv':'TV','nc':'ナースコール','int':'インターホン','sen':'センサー','weak':'弱電'}
 DEFH={'reeler':2.40,'lan':0.25,'tel':0.25,'hdmi':0.25,'tv':0.25,'nc':1.20,'int':1.30,'sen':2.30,'weak':0.25}
+HRE=re.compile(r'[HＨ][=＝]?\s*(\d{3,4})')
 def build(f):
     s,t=syms(f)
     rows=[]
     for c in sorted(s,key=lambda c:(round(c['z'],1),c['x'])):
         k,lab=classify(c,t)
         rows.append(dict(kind=k,x=c['x'],z=c['z'],h=DEFH.get(k,0.25),label=lab))
+    # 図面に「H=1600」などの取付高さ注記があるものは、その高さを使う。
+    # 注記は一番近い器具のもの。並べて描かれた同種の器具（TV×2 など）には一緒に効かせる。
+    for tx in t:
+        m=HRE.search(tx['t'])
+        if not m: continue
+        h=int(m.group(1))/1000
+        d=lambda r:math.hypot(r['x']-tx['x'], r['z']-tx['z'])
+        near=min(rows,key=d,default=None)
+        if near is None or d(near)>0.45: continue
+        for r in rows:
+            if r is near or (r['kind']==near['kind'] and
+                             math.hypot(r['x']-near['x'], r['z']-near['z'])<0.2):
+                r['h']=h
+                if tx['t'] not in r['label']: r['label']=(r['label']+' '+tx['t']).strip()
     return rows
 if __name__=='__main__':
     for tag,f in [('1F','09560ea3-1F-____1.pdf'),('2F','951eceac-2F-____1.pdf')]:
