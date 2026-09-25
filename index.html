@@ -1351,7 +1351,7 @@ html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:n
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-09-25c 可動間仕切り・2F設備図の位置補正</p>
+    <p class="text-small" id="clinic-build">版：2026-09-25d 処置/バックヤード2をアコーディオンカーテンに</p>
   </aside>
 </div>
 </div>
@@ -1458,9 +1458,10 @@ function doorZ(x,z,d,type='slide',direction=1){
 // パネルの「可動間仕切り・カーテンを開ける」で畳んだ状態になる。
 const partsOpen=()=>q('mpart').checked;
 const PART={
- screen :{c:'#e7e2d7',t:.045,pitch:.45,gap:.004,top:2.10,solid:true },
- curtain:{c:'#cbd3ce',t:.055,pitch:.11,gap:0,   top:2.10,solid:false},
- shutter:{c:'#b6bab9',t:.045,pitch:0,  gap:0,   top:2.14,solid:true }};
+ screen   :{c:'#e7e2d7',t:.045,pitch:.45,gap:.004,top:2.10,solid:true },
+ curtain  :{c:'#cbd3ce',t:.055,pitch:.11,gap:0,   top:2.10,solid:false},
+ accordion:{c:'#ddd8cc',t:.060,pitch:.09,gap:0,   top:2.53,solid:false},
+ shutter  :{c:'#b6bab9',t:.045,pitch:0,  gap:0,   top:2.14,solid:true }};
 // axis:'x' は z=at の面を a0→a1 に、'z' は x=at の面を a0→a1 に張る。
 // stack は開けたときに畳んで寄る側（-1: a0 側／1: a1 側）。base は下端（シャッターはカウンター天板）。
 // カーテンは閉じていても当たり判定を持たない（くぐって歩けるように）。
@@ -1481,7 +1482,7 @@ function partition(axis,at,a0,a1,kind,stack=-1,base=0){
   for(let i=0;i<n;i++){
    const p0=u0+(u1-u0)*i/n,p1=u0+(u1-u0)*(i+1)/n;
    // カーテンは一枚おきに膨らませてひだに、畳んだときはどれも少し膨らむ。
-   const d=kind==='curtain'?(i%2?.022:0):(open?.012:0);
+   const d=kind==='curtain'?(i%2?.022:0):kind==='accordion'?(i%2?.030:0):(open?.012:0);
    put(p0+g.gap,p1-g.gap,d,y0,top-y0,g.c,true);
   }
  }else if(!open){
@@ -1814,9 +1815,13 @@ function fullFloor2(){
  wall(9.75,2.49,.95,.10);wallZ(9.75,2.56,3.82,[[2.56,1.00,'slide']]);
  wallX(8.25,8.86,10.70,[[9.0,.90,'hinge',1]]);floor(8.86,8.35,10.70,9.90);
  floor(2.5,8.08,4.48,9.90);wall(2.5,9.90,2.40,.10);
- floor(4.58,8.80,8.76,10);floor(4.99,10,8.76,12.4);floor(6.25,12.1,8.76,12.50);
+ // 処置スペースの床は、もとの間仕切り壁の厚み分（X=8.76〜8.86）まで延ばしてある。
+ // 壁をアコーディオンカーテンに替えたので、ここに床がないと隙間になるため。
+ floor(4.58,8.80,8.76,10);floor(4.99,10,8.86,12.4);floor(6.25,12.1,8.76,12.50);
  wallX(9.90,8.76,10.70);floor(8.86,10,10.70,12.40);
- wallZ(8.76,8.35,12.40,[[10.85,.90,'slide']]);
+ wallZ(8.76,8.35,10.00);
+ // 処置スペース／バックヤード2 の間はアコーディオンカーテン（壁・建具なし）。
+ partition('z',8.81,10.00,12.40,'accordion',-1);
  wallX(12.40,6.25,10.70);wallZ(4.89,10,12.1,[[10.09,1.00,'shut',1]]);wall(4.89,12,1.36,.10);wall(6.15,12,.1,.40);
  // Rail at the edge of the loading void (not a walkable room).
  pillars();post2f();
