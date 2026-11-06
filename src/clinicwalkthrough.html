@@ -1126,6 +1126,7 @@ html>body{padding:0}</style>
 
 /* Settings drawer */
 #clinic-scrim{position:absolute;inset:0;z-index:9;background:rgb(0 0 0 / 30%)}
+#clinic-scene-hq{position:absolute;inset:0;width:100%;height:100%;display:block}
 #clinic-panel{position:absolute;top:0;right:0;bottom:0;z-index:10;width:min(360px,88vw);
   display:flex;flex-direction:column;gap:16px;overflow:auto;
   background:var(--background);border-left:1px solid var(--border);
@@ -1181,6 +1182,7 @@ html>body{padding:0}</style>
 
   <div id="clinic-stage">
     <canvas id="clinic-scene" role="img" aria-label="クリニックの3Dモデル。ドラッグで見回し、画面右下の矢印または矢印キー・WASDで歩けます。"></canvas>
+    <canvas id="clinic-scene-hq" role="img" aria-label="クリニックの3Dモデル（高画質）。" hidden></canvas>
     <canvas id="clinic-plan" role="img" aria-label="概略平面図。家具をドラッグして移動。選択欄と数値入力でも編集できます。" hidden></canvas>
     <div id="clinic-render-error" role="alert" hidden>3D表示を開始できませんでした。ページを再読み込みしてください。</div>
 
@@ -1309,6 +1311,7 @@ html>body{padding:0}</style>
       <label class="clinic-field" id="clinic-fov-label">画角 <span id="clinic-fov-value">98°</span><input class="form-range" type="range" min="60" max="115" value="98" id="clinic-fov"></label>
       <label class="clinic-field" id="clinic-distance-label" hidden>距離 <span id="clinic-distance-value">10m</span><input class="form-range" type="range" min="4" max="30" step="0.1" value="10" id="clinic-distance"></label>
       <label class="form-check" id="clinic-cut-label" hidden><input class="form-check-input" type="checkbox" id="clinic-cut" checked><span class="form-check-label">壁を低くして見通す</span></label>
+      <label class="form-check" id="clinic-hq-label" hidden><input class="form-check-input" type="checkbox" id="clinic-hq"><span class="form-check-label">高画質で描画（重め）</span></label>
     </section>
 
     <section class="clinic-sec">
@@ -1327,7 +1330,7 @@ html>body{padding:0}</style>
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-11-06e 描画の質を改善（間接光・接地影・トーン）</p>
+    <p class="text-small" id="clinic-build">版：2026-11-06f 高画質ビュー（three.js）を追加</p>
   </aside>
 </div>
 </div>
@@ -2472,12 +2475,36 @@ function encode(fs){const data=[];for(const f of fs){const h=f.c.slice(1),rgb=[0
 function rebuild(){
   faces=[];glassFaces=[];signs=[];coves=[];solids=[];floorAreas=[];glassBarriers=[];scenes[q('view').value]();architectureSolids=solids.slice();renderFurniture();fixtureLayer();
   if(gl){const data=encode(faces);count=data.length/7;gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data.concat(encode(glassFaces))),gl.DYNAMIC_DRAW);}
-  dirty=false;
+  dirty=false;buildStamp++;
 }
+// ---- 高画質ビュー ------------------------------------------------------
+// three.js（hq.js）が読み込めたときだけ使う別キャンバス。形は同じ faces を渡すだけで、
+// 変わるのは光と質感。読めなければトグルごと出さないので、既定の描画に影響はない。
+const hqCanvas=q('scene-hq');
+let hqReady=false,hqStamp=-1;
+function hqOn(){return hqReady&&q('hq').checked&&!isPlan();}
+window.addEventListener('clinic-hq-ready',()=>{
+ try{window.clinicHQ.init(hqCanvas);hqReady=true;q('hq-label').hidden=isPlan();dirty=true;render();}
+ catch(e){console.warn('高画質ビューを初期化できません',e);}
+});
+function drawHQ(c){
+ if(hqStamp!==buildStamp){window.clinicHQ.build(faces,glassFaces,coves,{plan:PLAN});hqStamp=buildStamp;}
+ window.clinicHQ.render(c,W,H);
+}
+let buildStamp=0;
 function draw(){
-  frameQueued=false;W=Math.max(1,canvas.clientWidth);H=Math.max(1,canvas.clientHeight);const ratio=gl?Math.min(Math.max(window.devicePixelRatio||1,1.5),2):1.5;
+  frameQueued=false;
+  // 先に表示を切り替えてから寸法を測る。隠れている canvas は clientWidth が 0 になる。
+  const hq=hqOn();
+  hqCanvas.hidden=!hq;
+  canvas.style.display=hq||isPlan()?'none':'block';
+  const box=hq?hqCanvas:canvas;
+  W=Math.max(1,box.clientWidth);H=Math.max(1,box.clientHeight);
+  const ratio=gl?Math.min(Math.max(window.devicePixelRatio||1,1.5),2):1.5;
   if(canvas.width!==Math.round(W*ratio)||canvas.height!==Math.round(H*ratio)){canvas.width=Math.round(W*ratio);canvas.height=Math.round(H*ratio);}
   if(dirty)rebuild();if(isPlan()){drawPlan();return;}const c=camera();
+  // 高画質ビューのときは、こちらのキャンバスに描いて既定の描画は休ませる。
+  if(hq){try{drawHQ(c);return;}catch(e){console.warn('高画質ビューの描画に失敗',e);q('hq').checked=false;hqCanvas.hidden=true;canvas.style.display='block';}}
   if(gl){
     gl.viewport(0,0,canvas.width,canvas.height);chamfered()&&!isOrbit()?gl.clearColor(.78,.87,.92,1):gl.clearColor(.947,.944,.926,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(program);
     for(const [u,v]of [['eye',c.eye],['right',c.right],['up',c.up],['forward',c.forward]])gl.uniform3fv(gl.getUniformLocation(program,u),v);
@@ -2533,7 +2560,8 @@ function reset(){roomView=null;walkPos=null;keys.clear();lookYaw=0;lookPitch=0;p
 function modeChange(){
   const plan=isPlan(),orbit=isOrbit(),wide=orbit||plan;
   root.classList.toggle('is-plan',plan);
-  q('editor').hidden=!plan;canvas.style.display=plan?'none':'block';q('plan').hidden=!plan;
+  q('editor').hidden=!plan;canvas.style.display=plan||hqOn()?'none':'block';q('plan').hidden=!plan;
+ q('hq-label').hidden=!hqReady||plan;q('scene-hq').hidden=!hqOn();
   q('pad').hidden=plan;q('zoombar').hidden=plan;q('jump').hidden=plan;
   q('position-chip').hidden=orbit;q('location').hidden=wide;
   q('fov-label').hidden=wide;q('distance-label').hidden=!orbit;q('cut-label').hidden=!orbit;
@@ -2593,6 +2621,7 @@ function refreshFixtures(){
   e.textContent='このフロアの設備図はまだ取り込んでいません。';rows.push(e);}
  list.replaceChildren(...rows);
 }
+q('hq').addEventListener('change',()=>{dirty=true;modeChange();render();});
 for(const n of ['fixtures','fix-power','fix-weak'])
  q(n).addEventListener('change',()=>{dirty=true;render();});
 

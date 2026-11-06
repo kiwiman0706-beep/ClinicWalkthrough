@@ -13,7 +13,10 @@ which re-applies the packaging changes and rewrites index.html:
     that blocks all three),
   * PWA head tags (manifest, theme colour, apple-touch-icon, standalone hints),
   * viewport-fit / safe-area padding and touch-sized controls for phones,
-  * the service-worker registration and the "add to home screen" button.
+  * the service-worker registration and the "add to home screen" button,
+  * the <script type="module"> that loads the optional high-quality view
+    (hq.js). It fails quietly when three.js is missing, so the default
+    renderer is unaffected.
 
 Nothing inside the app's own markup or scripts is touched.
 """
@@ -35,6 +38,9 @@ HEAD_TAGS = '''
 <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">'''
+
+# 高画質ビュー。読めなければトグルが出ないだけで、既定の描画はそのまま動く。
+HQ_TAG = '<script type="module" src="./hq.js"></script>'
 
 CSP = (
     '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
@@ -131,7 +137,7 @@ def patch(src: str) -> str:
         (VIEWPORT_OLD, VIEWPORT_NEW, 'viewport meta tag'),
         (STYLE_ANCHOR, STYLE_ANCHOR + PWA_STYLE, 'page style block'),
         ('</title>', '</title>' + HEAD_TAGS, '</title>'),
-        ('</body>', BODY_TAIL, '</body>'),
+        ('</body>', HQ_TAG + BODY_TAIL, '</body>'),
     ):
         if src.count(old) != 1:
             sys.exit(f'error: expected exactly one {label} ({old!r}).')

@@ -29,6 +29,9 @@ START, END = '//<<BUILDING>>', '//<</BUILDING>>'
 CARRY = [
     ('manifest.webmanifest', 'app/manifest.webmanifest'),
     ('sw.js', 'app/sw.js'),
+    ('hq.js', 'app/hq.js'),
+    ('vendor/three.min.js', 'app/vendor/three.min.js'),
+    ('vendor/README.md', 'app/vendor/README.md'),
     ('.nojekyll', 'app/.nojekyll'),
     ('tools/apply-pwa-patch.py', 'tools/apply-pwa-patch.py'),
     ('tools/apply-settings.py', 'tools/apply-settings.py'),
@@ -91,6 +94,7 @@ def build(out_zip):
                                 lambda m: m.group(1) + meta['description'] + m.group(2),
                                 index.read_text(encoding='utf-8'), count=1), encoding='utf-8')
         for src, dest in CARRY:
+            (stage / dest).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / src, stage / dest)
         manifest = json.loads((stage / 'app' / 'manifest.webmanifest').read_text(encoding='utf-8'))
         manifest['name'] = meta['manifest_name']
