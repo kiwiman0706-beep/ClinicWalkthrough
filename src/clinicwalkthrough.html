@@ -1337,7 +1337,7 @@ html>body{padding:0}</style>
 <script>
 (()=>{
 const root=document.getElementById('clinic-walkthrough'),q=id=>root.querySelector('#clinic-'+id),canvas=q('scene');
-let faces=[],glassFaces=[],outside=false,signs=[],coves=[],W=736,H=460,lookYaw=0,lookPitch=0,azimuth=-.65,elevation=.85;
+let faces=[],glassFaces=[],outside=false,signs=[],coves=[],lights=[],W=736,H=460,lookYaw=0,lookPitch=0,azimuth=-.65,elevation=.85;
 let solids=[],floorAreas=[],glassBarriers=[],walkPos=null,lastMode='';const keys=new Set();
 const isPlan=()=>q('mode').value==='plan';
 const isOrbit=()=>q('mode').value==='orbit',lowWalls=()=>isOrbit()&&q('cut').checked;
@@ -1432,6 +1432,49 @@ function doorZ(x,z,d,type='slide',direction=1){
  box(x-.02,0,z-.025,.14,h,.04,FC);box(x-.02,0,z+d-.015,.14,h,.04,FC);
  if(q('open').checked&&type!=='shut'){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(direction>0?x:x-d,0,z,d,h,.045,DC);}
  else{box(x,0,z,.045,h,d,DC);box(x-.025,.94,z+d-.12,.025,.12,.025,'#727977');}
+}
+// ---- 照明器具 ----------------------------------------------------------
+// 照明プランから拾った位置に器具を描き、同時に光源として登録する。
+// 光源を使うのは高画質ビュー（three.js）だけで、既定の描画は器具の見た目だけ。
+// 型番と仕様は器具リスト（コイズミ）より。lm=光束、K=色温度、deg=配光の半角。
+const LAMP={
+ D1:{lm:1350,K:3500,deg:25,r:.0375,n:'XD057527WM'},   // ベース 配光50°／グレアカット25°
+ D2:{lm:1025,K:3500,deg:40,r:.050, n:'AD58334'},      // 拡散
+ D3:{lm: 685,K:3500,deg:45,r:.0375,n:'AD58266'},      // 広角
+ D4:{lm:1940,K:5000,deg:40,r:.050, n:'AD58310'},      // 拡散・昼白色
+ D5:{lm: 435,K:3500,deg:40,r:.050, n:'AD7138W35'},    // 人感
+ D6:{lm: 725,K:3500,deg:40,r:.050, n:'AD7139W35'},    // 人感
+ D7:{lm: 795,K:3500,deg:40,r:.050, n:'AD7251W35'},
+ D8:{lm: 405,K:3500,deg:40,r:.050, n:'AD7250W35'},
+};
+// 円盤（器具の見え掛かり）。16角形で十分。
+function disc(cx,cz,y,r,c){
+ const v=[];for(let i=0;i<16;i++){const a=i*Math.PI/8;v.push([cx+r*Math.cos(a),y,cz+r*Math.sin(a)]);}
+ face(v,c,1.0,0);
+}
+// 器具を吊る高さ。下り天井があるところは建物側の lampCeiling() が低い値を返す。
+function lampY(x,z){
+ const v=q('view').value;
+ return (typeof lampCeiling==='function'&&lampCeiling(v,x,z))||2.60;
+}
+function lampLayer(){
+ if(lowWalls()||isPlan())return;
+ if(typeof lamps==='undefined')return;   // 照明を持たない建物ファイルでも動くように
+ for(const [t,x,z]of (lamps[q('view').value]||[])){
+  const g=LAMP[t];if(!g)continue;
+  const y=lampY(x,z);
+  disc(x,z,y-.004,g.r+.012,'#e9e6df');      // 枠
+  disc(x,z,y-.008,g.r,'#fffaf0');           // 発光面
+  lights.push([x,y-.02,z,g.lm,g.K,g.deg]);
+ }
+ if(typeof lampLines==='undefined')return;
+ for(const [t,x,z0,z1]of (lampLines[q('view').value]||[])){
+  const y=lampY(x,(z0+z1)/2);
+  marker(x-.055,y-.03,z0,.11,.03,z1-z0,'#fffaf0',0);
+  const n=Math.max(2,Math.round((z1-z0)/.6));
+  for(let i=0;i<n;i++)
+   lights.push([x,y-.04,z0+(z1-z0)*(i+.5)/n,3200/n,5000,55]);  // BL2 31.8W/5000K
+ }
 }
 // ---- 可動間仕切り -------------------------------------------------------
 // 平面図の「可動間仕切り（パナソニック）スクリーンウォール」「カーテン」
@@ -1960,6 +2003,47 @@ const designScheme={
  }
 };
 // フロアと、その3Dを描く関数の対応。
+// 照明器具の位置（照明プラン 2026-11-04 から読み取り）。[型番, X, Y] 単位はm。
+// 図面はスキャンなので、通り芯の寸法線で座標系を合わせてから symbol を読んでいる。
+// 誤差はおおむね ±0.1m。MRI室は照明プランに器具記号が無いため空（機器側の付属照明と思われる）。
+const lamps={
+ '0':[],
+ '1':[
+  ['D4',5.81,0.88],                                              // 機械室（サブ）
+  ['D6',3.01,2.84],['D7',4.00,2.84],                             // ELVホール（D6は人感）
+  ['D7',3.01,4.04],                                              // 廊下
+  ['D4',6.46,4.65],                                              // バックヤード
+  ['D8',0.62,5.63],['D5',1.61,5.64],                             // 患者用WC（人感）
+  ['D4',6.47,6.80],                                              // バックヤード南
+  ['D1',2.85,5.97],
+  ['D1',1.36,7.27],['D1',2.85,7.27],
+  ['D1',1.36,8.58],['D1',2.85,8.58],
+  ['D3',3.72,8.65],['D2',4.52,8.56],['D2',6.17,8.56],            // 受付
+  ['D3',4.23,9.44],['D3',4.95,9.44],['D3',5.67,9.44],            // 受付カウンター上
+  ['D1',1.36,9.87],['D1',2.85,9.87],['D1',4.50,9.89],['D1',6.15,9.89],
+  ['D1',2.85,11.15],['D1',4.50,11.15],['D1',6.15,11.15],         // 待合
+  ['D5',9.89,9.17],                                              // 職員用WC（人感）
+  ['D2',7.15,11.80],['D2',8.06,11.80]                            // 更衣1・2
+ ],
+ // 2階は電気設備図を受け取っていないので空。届いたら1階と同じ要領で拾う。
+ '2':[]
+};
+// 下り天井の下は天井が低い。該当しなければ 0（engine 側の既定 2.60 になる）。
+function lampCeiling(view,x,z){
+ return (view==='1'&&x>3.55&&x<6.94&&z>3.62&&z<9.72)?2.31:0;
+}
+// ベースライト（線状）。[型番, X, Y開始, Y終了]
+const lampLines={
+ '0':[],
+ '1':[
+  ['BL2',4.40,4.00,5.30],['BL2',5.67,4.00,5.30],                 // 診察室2
+  ['BL2',4.40,6.10,7.35],['BL2',5.67,6.10,7.35],                 // 診察室1
+  ['BL2',8.00,7.06,8.30],['BL2',9.85,7.06,8.30],                 // 検査室・操作
+  ['BL2',8.00,9.47,10.67],                                       // 検査室南
+  ['BL2',9.57,10.35,11.56]                                       // エックス線室
+ ],
+ '2':[]      // 1階と同じく、2階の電気設備図が来てから
+};
 const scenes={'0':scene0,'1':scene1,'2':scene2};
 // Room zones: the plan split into rectangles so each room can carry its own finish.
 // A point is matched against the first rectangle that contains it, so rooms sitting
@@ -2469,7 +2553,7 @@ q('blender').addEventListener('click',()=>{
 
 function encode(fs){const data=[];for(const f of fs){const h=f.c.slice(1),rgb=[0,2,4].map(i=>clamp(parseInt(h.slice(i,i+2),16)/255*f.k,0,1));for(let i=1;i<f.v.length-1;i++)for(const p of [f.v[0],f.v[i],f.v[i+1]])data.push(...p,...rgb,f.mat||0);}return data;}
 function rebuild(){
-  faces=[];glassFaces=[];signs=[];coves=[];solids=[];floorAreas=[];glassBarriers=[];scenes[q('view').value]();architectureSolids=solids.slice();renderFurniture();fixtureLayer();
+  faces=[];glassFaces=[];signs=[];coves=[];lights=[];solids=[];floorAreas=[];glassBarriers=[];scenes[q('view').value]();architectureSolids=solids.slice();renderFurniture();fixtureLayer();lampLayer();
   if(gl){const data=encode(faces);count=data.length/7;gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data.concat(encode(glassFaces))),gl.DYNAMIC_DRAW);}
   dirty=false;buildStamp++;
 }
@@ -2486,7 +2570,7 @@ window.addEventListener('clinic-hq-ready',()=>{
  catch(e){console.warn('高画質ビューを初期化できません',e);}
 });
 function drawHQ(c){
- if(hqStamp!==buildStamp){window.clinicHQ.build(faces,glassFaces,coves,{plan:PLAN});hqStamp=buildStamp;}
+ if(hqStamp!==buildStamp){window.clinicHQ.build(faces,glassFaces,coves,{plan:PLAN,lamps:lights});hqStamp=buildStamp;}
  window.clinicHQ.render(c,W,H);
 }
 let buildStamp=0;

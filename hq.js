@@ -12,6 +12,7 @@ import * as THREE from './vendor/three.min.js';
 
 const WARM = 0xffd2a1;          // 3500K 相当。設備図の器具リストに合わせている。
 const DAY  = 0xdfeaf2;
+const GLOW = '#fffaf0';   // 器具の発光面につけている色。自己発光で描く。
 
 // メーカーのスウォッチ画像。面の色から引き当てる（仕上げは designScheme が色で決めるので、
 // 色がそのまま品番の代わりになる）。w,h はその画像が実物で何メートル分かで、
@@ -41,22 +42,22 @@ const TEX = {
 };
 const loader = new THREE.TextureLoader();
 const cache = new Map();
-function texture(file, anis) {
-  let t = cache.get(file);
-  if (!t) {
-    // 画面は必要なときだけ描くので、読み終わったら描き直しを促す。
-    // これが無いと、読み込み前に描かれた面が黒いまま残る。
-    t = loader.load('./textures/' + file,
-      () => window.dispatchEvent(new Event('clinic-hq-dirty')),
-      undefined,
-      () => console.warn('テクスチャを読めません:', file));
-    t.colorSpace = THREE.SRGBColorSpace;
+// 読み込みが終わった画像だけを material.map に差す。
+// three.js は未読込のテクスチャを黒い1x1で代用するので、先に map を入れてしまうと
+// 読み終わるまで面が真っ黒になる（画面は必要なときしか描かないので、数秒そのまま残る）。
+// 代わりに読み終わってから差し、そのとき描き直しを促す。
+function withTexture(mat, file, anis) {
+  const t = cache.get(file);
+  if (t) { mat.map = t; mat.color.setRGB(1, 1, 1); return; }
+  loader.load('./textures/' + file, tex => {
+    tex.colorSpace = THREE.SRGBColorSpace;
     // スウォッチはシームレス加工されていないので、鏡像で繰り返して継ぎ目を目立たなくする。
-    t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping;
-    t.anisotropy = anis;
-    cache.set(file, t);
-  }
-  return t;
+    tex.wrapS = tex.wrapT = THREE.MirroredRepeatWrapping;
+    tex.anisotropy = anis;
+    cache.set(file, tex);
+    mat.map = tex; mat.color.setRGB(1, 1, 1); mat.needsUpdate = true;
+    window.dispatchEvent(new Event('clinic-hq-dirty'));
+  }, undefined, () => console.warn('テクスチャを読めません:', file));
 }
 
 let renderer, scene, camera, solid, glass, env, group, lights;
@@ -105,10 +106,13 @@ function geometry(faces, w, h) {
 }
 
 function init(canvas) {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  // preserveDrawingBuffer は、描いた絵をあとから canvas から取り出せるようにするため
+  // （スクリーンショットや画像の書き出し）。わずかに遅くなるが実用上は問題ない。
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false,
+                                       preserveDrawingBuffer: true });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.78;
+  renderer.toneMappingExposure = 0.80;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -120,13 +124,56 @@ function init(canvas) {
   const pmrem = new THREE.PMREMGenerator(renderer);
   env = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
   scene.environment = env;
-  scene.environmentIntensity = 0.42;
+  scene.environmentIntensity = 0.22;
 
   group = new THREE.Group();
   scene.add(group);
   lights = new THREE.Group();
   scene.add(lights);
   return true;
+}
+
+// 色温度 -> 色。器具リストにある 3500K と 5000K だけ使う。
+function kelvin(k) {
+  return k >= 4500 ? new THREE.Color(0xfff2e4) : new THREE.Color(WARM);
+}
+
+// 照明プランから拾ったダウンライト。lamps は [x,y,z,lm,K,配光半角deg] の配列。
+// 1階だけで45灯あるが、**全部を同時にシーンへ入れると環境光が効かなくなり、
+// スマホでは到底動かない**。そこで灯具は数個のプールで使い回し、描画のたびに
+// カメラに近いものだけを割り当てる。見えていない部屋の灯りは画に出ないので、これで足りる。
+const POOL = 10;
+let lampData = [], pool = [];
+function makePool() {
+  while (pool.length < POOL) {
+    const l = new THREE.SpotLight(0xffffff, 0, 9, 0.6, 0.45, 2);
+    l.visible = false;
+    pool.push(l);
+  }
+  // build() は lights を空にするので、作り置きの灯具は毎回入れ直す。
+  for (const l of pool) lights.add(l, l.target);
+}
+// 強さは光束から。スポットライトの単位はカンデラなので lm/立体角 で出し、
+// 見た目で合わせた係数をかけている（厳密な測光ではない）。
+function updateLamps(eye) {
+  if (!lampData.length) { for (const l of pool) l.visible = false; return; }
+  const near = lampData
+    .map(d => [(d[0] - eye[0]) ** 2 + (d[2] - eye[2]) ** 2, d])
+    .sort((a, b) => a[0] - b[0]).slice(0, POOL);
+  pool.forEach((l, i) => {
+    const hit = near[i];
+    if (!hit) { l.visible = false; return; }
+    const [x, y, z, lm, K, deg] = hit[1];
+    const a = Math.min(Math.max(deg, 10), 80) * Math.PI / 180;
+    const solid = 2 * Math.PI * (1 - Math.cos(a));           // 立体角 sr
+    l.visible = true;
+    l.color.copy(kelvin(K));
+    l.intensity = lm / solid * 0.14;
+    l.angle = a;
+    l.position.set(x, y, z);
+    l.target.position.set(x, 0, z);
+    l.target.updateMatrixWorld();
+  });
 }
 
 // 下り天井のスリットに置く光。coves は [x0,z0,x1,z1,y] の配列。
@@ -136,7 +183,7 @@ function placeCoves(coves) {
     const n = Math.max(2, Math.min(6, Math.round(len / 1.2)));
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n;
-      const l = new THREE.PointLight(WARM, 1.9, 4.0, 2);
+      const l = new THREE.PointLight(WARM, 2.2, 4.0, 2);
       l.position.set(x0 + (x1 - x0) * t, y - 0.12, z0 + (z1 - z0) * t);
       lights.add(l);
     }
@@ -149,10 +196,11 @@ function build(faces, glassFaces, coves, opts) {
 
   // スウォッチのある色はテクスチャ付きのメッシュへ、それ以外は頂点色のまま1つに。
   const anis = renderer.capabilities.getMaxAnisotropy();
-  const bins = new Map(), plain = [];
+  const bins = new Map(), plain = [], glow = [];
   for (const f of faces) {
     const key = (f.c || '').toLowerCase();
-    if (TEX[key]) (bins.get(key) || bins.set(key, []).get(key)).push(f);
+    if (key === GLOW) glow.push(f);
+    else if (TEX[key]) (bins.get(key) || bins.set(key, []).get(key)).push(f);
     else plain.push(f);
   }
   const common = {
@@ -162,9 +210,12 @@ function build(faces, glassFaces, coves, opts) {
   };
   for (const [key, fs] of bins) {
     const [file, w, h, rough] = TEX[key];
-    const m = new THREE.Mesh(geometry(fs, w, h), new THREE.MeshStandardMaterial({
-      ...common, map: texture(file, anis), roughness: rough,
-    }));
+    // 読み込み中は品番の代表色でベタ塗りしておく（読み終わったら白に戻して画像だけにする）。
+    const mat = new THREE.MeshStandardMaterial({
+      ...common, roughness: rough, color: toLinear(key),
+    });
+    withTexture(mat, file, anis);
+    const m = new THREE.Mesh(geometry(fs, w, h), mat);
     m.castShadow = m.receiveShadow = true;
     group.add(m);
   }
@@ -173,6 +224,14 @@ function build(faces, glassFaces, coves, opts) {
   }));
   solid.castShadow = solid.receiveShadow = true;
   group.add(solid);
+
+  // 器具の発光面。下を向いているので上から光が当たらず、ふつうに塗ると暗く沈む。
+  // 自己発光にして、点灯している器具として見えるようにする。
+  if (glow.length) {
+    group.add(new THREE.Mesh(geometry(glow), new THREE.MeshStandardMaterial({
+      ...common, color: 0x000000, emissive: 0xfff4e2, emissiveIntensity: 3.2,
+    })));
+  }
 
   if (glassFaces.length) {
     glass = new THREE.Mesh(geometry(glassFaces), new THREE.MeshPhysicalMaterial({
@@ -183,9 +242,11 @@ function build(faces, glassFaces, coves, opts) {
   }
 
   placeCoves(coves);
+  lampData = opts.lamps || [];
+  makePool();
 
   // 昼光。ガラス面のある南西から。室内なので強すぎないように。
-  const sun = new THREE.DirectionalLight(DAY, 0.6);
+  const sun = new THREE.DirectionalLight(DAY, 0.40);
   sun.position.set(-6, 7, 16);
   sun.target.position.set(opts.plan[0] / 2, 0, opts.plan[1] / 2);
   sun.castShadow = true;
@@ -195,10 +256,18 @@ function build(faces, glassFaces, coves, opts) {
   sun.shadow.bias = -0.0012;
   sun.shadow.normalBias = 0.02;
   lights.add(sun, sun.target);
-  lights.add(new THREE.HemisphereLight(0xf4f1ea, 0x8e887f, 0.22));
+  lights.add(new THREE.HemisphereLight(0xf4f1ea, 0xcac3b7, 0.14));
+
+  // 床からの照り返しのかわり。真上を向いた平行光なので、下を向いた面だけに効く。
+  // これが無いと下り天井の裏や棚の下が灰色に沈む（相互反射を計算していないため）。
+  const bounce = new THREE.DirectionalLight(0xead9c2, 0.45);
+  bounce.position.set(opts.plan[0] / 2, -4, opts.plan[1] / 2);
+  bounce.target.position.set(opts.plan[0] / 2, 0, opts.plan[1] / 2);
+  lights.add(bounce, bounce.target);
 }
 
 function render(c, w, h) {
+  updateLamps(c.eye);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(w, h, false);
   camera.fov = 2 * Math.atan(1 / c.fy) * 180 / Math.PI;
