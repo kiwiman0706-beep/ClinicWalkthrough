@@ -4,3 +4,6 @@ node_modules/
 dist/
 refs-out/
 .refs-tmp.html
+.hqtmp.html
+# 確認用に書き出した静止画（リポジトリには入れない）
+ダウンライト確認.jpg
