@@ -103,6 +103,7 @@ def build(out_zip):
         (stage / 'app' / 'manifest.webmanifest').write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
         shutil.copytree(ROOT / 'icons', stage / 'app' / 'icons')
+        shutil.copytree(ROOT / 'textures', stage / 'app' / 'textures')
         for doc in DOCS:
             shutil.copy2(KIT / doc, stage / doc)
         for name in ('make-sample-plan.py', 'sample-plan-1F.pdf', 'sample-plan-2F.pdf'):

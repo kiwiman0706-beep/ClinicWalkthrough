@@ -1357,7 +1357,7 @@ html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:n
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-11-06f 高画質ビュー（three.js）を追加</p>
+    <p class="text-small" id="clinic-build">版：2026-11-07 実テクスチャ適用・精算機を実寸に</p>
   </aside>
 </div>
 </div>
@@ -1731,37 +1731,36 @@ function scene0(){
    streetScene();
  }
 }
-// MEDISMAレジ（卓上型の自動精算機）。カウンター天板に載せる想定で、
+// MEDISMAレジ Lタイプ（卓上型の自動精算機）。メーカー仕様書より **W530 × D345 × H430**。
 // 患者側（+z）が正面：手前に硬貨ユニットと紙幣ユニット、奥にタブレットとカード端末。
-// **外形寸法は製品写真からの推定**（W700 × D450 × 天板上 H480）。
-// メーカーの仕様書が手に入ったら、この関数の数値だけ差し替えれば直ります。
-// x,z は天板上の「左手前の角」、y は天板の高さ。
+// 内部の割り付けは製品写真から起こした比率。x,z は天板上の「左手前の角」、y は天板の高さ。
 function medisma(x,z,y){
  const K='#26292b',W='#eceeec',G='#c9cdcb',T='#1fb5a0',S='#f7faf9',B='#2a7fd4';
- const F=z,Bk=z-.45;
- box(x,y,Bk,.70,.10,.45,K);                    // 台座
- y+=.10;
+ const WD=.530,DP=.345,HT=.430;            // 外形
+ const u=a=>x+a*WD, d=a=>z-a*DP, v=a=>y+a*HT;   // 0..1 の比率で置く
+ const F=z,Bk=z-DP;
+ box(x,y,Bk,WD,HT*.085,DP,K);                   // 台座（高さ 約37mm）
  // 硬貨ユニット（患者から見て左）
- marker(x+.01,y,F-.34,.36,.20,.34,W,3);
- marker(x+.01,y+.16,F-.34,.36,.04,.34,K,3);
- marker(x+.01,y+.02,F-.10,.14,.16,.10,K,3);    // 硬貨投入トレー
- marker(x+.20,y+.15,F-.06,.14,.02,.05,B,3);    // 投入口まわりの青いライン
- marker(x+.26,y+.02,F-.03,.07,.03,.03,K,3);    // 返却口
+ marker(u(.02),v(.085),d(.97),WD*.50,HT*.40,DP*.95,W,3);
+ marker(u(.02),v(.40),d(.97),WD*.50,HT*.085,DP*.95,K,3);
+ marker(u(.02),v(.12),d(.28),WD*.20,HT*.33,DP*.28,K,3);   // 硬貨投入トレー
+ marker(u(.28),v(.37),d(.18),WD*.20,HT*.04,DP*.15,B,3);   // 投入口まわりの青いライン
+ marker(u(.37),v(.12),d(.09),WD*.10,HT*.06,DP*.09,K,3);   // 返却口
  // 紙幣ユニット（右）
- marker(x+.41,y,F-.34,.28,.24,.34,W,3);
- marker(x+.41,y+.19,F-.34,.28,.05,.34,K,3);
- marker(x+.45,y+.19,F-.04,.20,.02,.04,B,3);    // 紙幣投入口
- marker(x+.47,y+.03,F-.03,.14,.03,.03,K,3);    // レシート取出口
+ marker(u(.57),v(.085),d(.97),WD*.40,HT*.48,DP*.95,W,3);
+ marker(u(.57),v(.47),d(.97),WD*.40,HT*.10,DP*.95,K,3);
+ marker(u(.63),v(.47),d(.12),WD*.28,HT*.04,DP*.12,B,3);   // 紙幣投入口
+ marker(u(.66),v(.14),d(.09),WD*.20,HT*.06,DP*.09,K,3);   // レシート取出口
  // 操作用タブレット
- marker(x+.08,y,Bk+.01,.24,.06,.09,K,3);       // スタンド台
- marker(x+.18,y+.06,Bk+.04,.04,.14,.04,K,3);   // 支柱
- marker(x+.07,y+.20,Bk+.02,.26,.19,.02,K,3);   // 筐体
- marker(x+.08,y+.21,Bk+.04,.24,.17,.005,S,3);  // 画面
- for(let i=0;i<3;i++)marker(x+.20,y+.24+i*.04,Bk+.045,.11,.02,.005,T,3);
+ marker(u(.11),v(.085),d(.22),WD*.34,HT*.13,DP*.22,K,3);  // スタンド台
+ marker(u(.25),v(.21),d(.13),WD*.06,HT*.30,DP*.10,K,3);   // 支柱
+ marker(u(.10),v(.45),d(.08),WD*.36,HT*.46,DP*.05,K,3);   // 筐体
+ marker(u(.11),v(.47),d(.055),WD*.34,HT*.42,DP*.012,S,3); // 画面
+ for(let i=0;i<3;i++)marker(u(.28),v(.53+i*.09),d(.05),WD*.15,HT*.045,DP*.012,T,3);
  // カード決済端末
- marker(x+.52,y,Bk+.02,.11,.02,.08,G,3);
- marker(x+.53,y+.02,Bk+.03,.09,.16,.05,W,3);
- marker(x+.535,y+.05,Bk+.028,.08,.11,.005,S,3);
+ marker(u(.73),v(.085),d(.18),WD*.15,HT*.04,DP*.17,G,3);
+ marker(u(.74),v(.12),d(.16),WD*.13,HT*.37,DP*.12,W,3);
+ marker(u(.745),v(.19),d(.145),WD*.12,HT*.26,DP*.012,S,3);
 }
 // 壁付けサイン。プレートではなく、**立体の切り文字を壁に直付け**する想定。
 // 3Dでは文字までは再現できないので、ロゴが載る範囲を薄い立体として置くだけにして、
@@ -1775,12 +1774,9 @@ function wallSign(cx,z,cy,w,h){
 // 照明プランの「上部間接 L1200×3」（西辺）と「IN1 L2360／IN2 L1610」（南辺）がそれ。
 function receptionSoffit(){
  const X0=3.55,X1=6.94,Z0=3.62,Z1=9.72,Y=2.31,SL=.15,C=color('ceiling');
- // 下がった天井面（スリットの内側ぶん控える）
  face([[X0+SL,Y,Z0],[X1,Y,Z0],[X1,Y,Z1-SL],[X0+SL,Y,Z1-SL]],C,1,0);
- // スリットの底（内部白色）と、そこから覗く光
  face([[X0,2.70,Z0],[X0+SL,2.70,Z0],[X0+SL,2.70,Z1],[X0,2.70,Z1]],'#fbf6ec',1,0);
  face([[X0+SL,2.70,Z1-SL],[X1,2.70,Z1-SL],[X1,2.70,Z1],[X0+SL,2.70,Z1]],'#fbf6ec',1,0);
- // 下り天井の見付け（木目クロスの帯）と、その足元を洗う光
  const WD=rf('待合','accent')||color('wall');
  marker(X0,Y,Z1-.012,X1-X0,.39,.012,WD,0);             // 南面の帯
  marker(X0,Y,Z0,.012,.39,Z1-Z0,WD,0);                  // 西面の帯
@@ -2510,6 +2506,8 @@ function rebuild(){
 const hqCanvas=q('scene-hq');
 let hqReady=false,hqStamp=-1;
 function hqOn(){return hqReady&&q('hq').checked&&!isPlan();}
+// テクスチャの読み込みが終わったら描き直す。
+window.addEventListener('clinic-hq-dirty',()=>{if(hqOn())render();});
 window.addEventListener('clinic-hq-ready',()=>{
  try{window.clinicHQ.init(hqCanvas);hqReady=true;q('hq-label').hidden=isPlan();dirty=true;render();}
  catch(e){console.warn('高画質ビューを初期化できません',e);}

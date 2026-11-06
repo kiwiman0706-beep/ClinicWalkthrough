@@ -13,27 +13,93 @@ import * as THREE from './vendor/three.min.js';
 const WARM = 0xffd2a1;          // 3500K 相当。設備図の器具リストに合わせている。
 const DAY  = 0xdfeaf2;
 
+// メーカーのスウォッチ画像。面の色から引き当てる（仕上げは designScheme が色で決めるので、
+// 色がそのまま品番の代わりになる）。w,h はその画像が実物で何メートル分かで、
+// この値でUVのスケールが決まる。**確証のあるものと、こちらで置いた仮定が混じっている**：
+//   実寸が分かっているもの … PWT4290（板1枚 900×150）、メラミン3種（A4 210×297）、
+//                              エコカラット（CG用 3636×2424）
+//   仮定しているもの     … 床シートは画像幅＝シート幅1820、クロスは画像幅＝巾920。
+//                              メーカーページに柄リピートの記載が無いため。
+const TEX = {
+  '#aeaaa6': ['FS4274.jpg',      1.820, 0.982, 0.80],   // 1F床 待合・WC(P)
+  '#d9d2c5': ['FS4276.jpg',      1.820, 0.982, 0.80],   // 1F床 その他
+  '#e8e4e0': ['WVP8255.jpg',     0.920, 0.920, 0.94],   // 1F壁・天井
+  '#a78972': ['WVP8041.jpg',     0.920, 0.920, 0.90],   // 1F 待合の木目壁
+  '#9f999f': ['WVP8069.jpg',     0.920, 0.920, 0.92],   // ①AC
+  '#aeb7a2': ['WVP8257.jpg',     0.920, 0.920, 0.92],   // ②AC
+  '#cdc9be': ['WVP8256.jpg',     0.920, 0.920, 0.92],   // ③AC
+  '#afb1b6': ['WVP8492.jpg',     0.920, 0.920, 0.92],   // ④AC
+  '#e0e0df': ['TH6019.jpg',      0.909, 0.060, 0.70],   // 1F巾木
+  '#84716c': ['JC-12031K.jpg',   0.210, 0.297, 0.45],   // 1Fカウンター木部
+  '#eee1d4': ['LJ-10234KN74.jpg',0.210, 0.297, 0.35],   // 1Fカウンター天板
+  '#ded8cf': ['ECP-315_VSR1N.jpg',3.636, 2.424, 0.95],  // 案B 受付背面エコカラット
+  '#e6e5e3': ['WVP8473.jpg',     0.920, 0.920, 0.94],   // 2F壁
+  '#96785d': ['PWT4290.jpg',     0.900, 0.150, 0.70],   // 2F床 ロイヤルウッド
+  '#7a614a': ['DEC8296.jpg',     0.820, 0.210, 0.80],   // 2F腰壁 ハーデック
+  '#79583a': ['TJ-2062K.jpg',    0.210, 0.297, 0.45],   // 2Fカウンター
+  '#8a6e60': ['TH60415.jpg',     0.909, 0.060, 0.70],   // 2F巾木
+};
+const loader = new THREE.TextureLoader();
+const cache = new Map();
+function texture(file, anis) {
+  let t = cache.get(file);
+  if (!t) {
+    // 画面は必要なときだけ描くので、読み終わったら描き直しを促す。
+    // これが無いと、読み込み前に描かれた面が黒いまま残る。
+    t = loader.load('./textures/' + file,
+      () => window.dispatchEvent(new Event('clinic-hq-dirty')),
+      undefined,
+      () => console.warn('テクスチャを読めません:', file));
+    t.colorSpace = THREE.SRGBColorSpace;
+    // スウォッチはシームレス加工されていないので、鏡像で繰り返して継ぎ目を目立たなくする。
+    t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping;
+    t.anisotropy = anis;
+    cache.set(file, t);
+  }
+  return t;
+}
+
 let renderer, scene, camera, solid, glass, env, group, lights;
 
 function toLinear(hex) {
   return new THREE.Color().setStyle(hex, THREE.SRGBColorSpace);
 }
 
+// 面の法線がいちばん寝ている軸を落として、ワールド座標をそのままUVにする。
+// 建物は軸に平行なので、これでタイルが現実の寸法どおりに並ぶ。
+function boxUV(v0, v1, v2, w, h, out) {
+  const ax = v1[0] - v0[0], ay = v1[1] - v0[1], az = v1[2] - v0[2];
+  const bx = v2[0] - v0[0], by = v2[1] - v0[1], bz = v2[2] - v0[2];
+  const nx = Math.abs(ay * bz - az * by), ny = Math.abs(az * bx - ax * bz),
+        nz = Math.abs(ax * by - ay * bx);
+  const pick = ny >= nx && ny >= nz ? 1 : (nx >= nz ? 0 : 2);
+  for (const p of [v0, v1, v2]) {
+    const u = pick === 0 ? p[2] : p[0];
+    const t = pick === 1 ? p[2] : p[1];
+    out.push(u / w, t / h);
+  }
+}
+
 // faces -> 非インデックスの BufferGeometry。三角形ごとに法線が立つので、
 // computeVertexNormals() がそのままフラットシェーディングになる。
-function geometry(faces) {
-  const pos = [], col = [], c = new THREE.Color();
+// w,h を渡すと、同時にボックス投影のUVも作る。
+function geometry(faces, w, h) {
+  const pos = [], col = [], uv = [], c = new THREE.Color();
   for (const f of faces) {
     c.copy(toLinear(f.c));
-    for (let i = 1; i < f.v.length - 1; i++)
-      for (const p of [f.v[0], f.v[i], f.v[i + 1]]) {
+    for (let i = 1; i < f.v.length - 1; i++) {
+      const tri = [f.v[0], f.v[i], f.v[i + 1]];
+      for (const p of tri) {
         pos.push(p[0], p[1], p[2]);
         col.push(c.r, c.g, c.b);
       }
+      if (w) boxUV(tri[0], tri[1], tri[2], w, h, uv);
+    }
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  if (w) g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.computeVertexNormals();
   return g;
 }
@@ -81,11 +147,29 @@ function build(faces, glassFaces, coves, opts) {
   group.clear();
   lights.clear();
 
-  solid = new THREE.Mesh(geometry(faces), new THREE.MeshStandardMaterial({
-    vertexColors: true, roughness: 0.82, metalness: 0.0,
-    side: THREE.DoubleSide,
+  // スウォッチのある色はテクスチャ付きのメッシュへ、それ以外は頂点色のまま1つに。
+  const anis = renderer.capabilities.getMaxAnisotropy();
+  const bins = new Map(), plain = [];
+  for (const f of faces) {
+    const key = (f.c || '').toLowerCase();
+    if (TEX[key]) (bins.get(key) || bins.set(key, []).get(key)).push(f);
+    else plain.push(f);
+  }
+  const common = {
+    side: THREE.DoubleSide, metalness: 0.0,
     // 既存エンジンは薄い板を壁に密着させて置くので、Zファイティングを抑える。
     polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+  };
+  for (const [key, fs] of bins) {
+    const [file, w, h, rough] = TEX[key];
+    const m = new THREE.Mesh(geometry(fs, w, h), new THREE.MeshStandardMaterial({
+      ...common, map: texture(file, anis), roughness: rough,
+    }));
+    m.castShadow = m.receiveShadow = true;
+    group.add(m);
+  }
+  solid = new THREE.Mesh(geometry(plain), new THREE.MeshStandardMaterial({
+    ...common, vertexColors: true, roughness: 0.82,
   }));
   solid.castShadow = solid.receiveShadow = true;
   group.add(solid);

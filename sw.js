@@ -2,12 +2,32 @@
 // The app is a single self-contained HTML file with no external requests, so a
 // small precache is enough to make it work fully offline once installed.
 // Bump CACHE_VERSION whenever index.html or the icons change.
-const CACHE_VERSION = 'clinic-walkthrough-v27';
+const CACHE_VERSION = 'clinic-walkthrough-v28';
 const PRECACHE = [
   './',
   './index.html',
   './hq.js',
   './vendor/three.min.js',
+  './textures/DEC8296.jpg',
+  './textures/ECP-315_VSR1N.jpg',
+  './textures/ECP-315_VSR2N.jpg',
+  './textures/ECP-315_VSR3N.jpg',
+  './textures/FS4274.jpg',
+  './textures/FS4276.jpg',
+  './textures/JC-12031K.jpg',
+  './textures/LJ-10234KN74.jpg',
+  './textures/PWT4290.jpg',
+  './textures/Panasonic_RV.jpg',
+  './textures/TH6019.jpg',
+  './textures/TH60415.jpg',
+  './textures/TJ-2062K.jpg',
+  './textures/WVP8041.jpg',
+  './textures/WVP8069.jpg',
+  './textures/WVP8255.jpg',
+  './textures/WVP8256.jpg',
+  './textures/WVP8257.jpg',
+  './textures/WVP8473.jpg',
+  './textures/WVP8492.jpg',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
