@@ -17,6 +17,7 @@ APIキーはこのスクリプトには書きません。クラウドセッシ�
 import base64, json, mimetypes, os, pathlib, sys, urllib.error, urllib.request
 
 MODEL = 'gemini-3-pro-image'
+SIZE = '2K'          # Web用。ロゴを後から合成するので解像度は高めに。'1K'/'2K'/'4K'
 BASE = f'https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent'
 
 SPEC = """Turn this 3D massing reference into a photorealistic architectural interior
@@ -53,6 +54,12 @@ outlet below. Behind them a tablet on a slim black stand faces the patient, its
 white screen showing a few teal buttons, and beside it a small white card
 terminal. Keep it compact and tidy; no text on the screen.
 
+On the mauve-grey wall above and behind the counter, where the reference shows
+it, hangs the clinic's sign: a brushed stainless plate held 25 mm off the wall on
+four small spacers, with a soft warm halo of concealed light spilling onto the
+wall around it. LEAVE THE PLATE FACE COMPLETELY BLANK - no mark, no symbol, no
+lettering of any kind. The real logo is added afterwards.
+
 Lighting: ceiling height 2700 mm, flat plasterboard ceiling, recessed round
 downlights at 3500 K, plus a concealed cove light washing the wood band above
 the counter. Soft daylight from the left. Gentle, even, no harsh shadows,
@@ -64,6 +71,10 @@ not a render; clean and uncluttered.
 
 {cut}
 
+No patients and no members of the public anywhere in the frame. Nothing
+readable on any screen, no documents, charts or paperwork on the counter, no
+clutter. Do not over-process: no heavy HDR, no exaggerated contrast.
+
 Absolutely no text, no lettering, no signage, no logos, no watermarks, no
 Japanese or English characters anywhere in the image."""
 
@@ -72,15 +83,32 @@ CUTS = {
     'hero':  ('base-B-diagonal', '16:9',
               'No people. Wide hero composition with clear space at the upper left '
               'for a headline.'),
+    'sign':  ('base-F-sign', '3:2',
+              'No people. Tighter, longer lens: the backlit sign plate is the subject, '
+              'filling a good part of the frame. The counter edge runs across the lower '
+              'foreground, slightly out of focus.'),
     'port':  ('base-C-portrait', '4:5',
               'No people. Portrait crop, focus on the counter, the stone top and the '
               'payment kiosk.'),
     'wait':  ('base-A-hero', '16:9',
               'No people. Show the bench seating in the waiting area and the daylight.'),
+    'entry': ('base-D-entrance', '16:9',
+              'No people. The view a patient gets on walking in: the waiting area opening '
+              'up toward the reception.'),
+    'corr':  ('base-G-corridor', '4:5',
+              'No people. The corridor toward the consulting rooms, doors closed, '
+              'depth and calm.'),
+    'exam':  ('base-H-exam', '16:9',
+              'No people. A consulting room with the soft green accent wall, the desk '
+              'and the examination couch. Tidy, nothing on the desk.'),
     'staff': ('base-B-diagonal', '16:9',
               'Two staff in plain light-grey scrubs behind the counter, mid-distance, '
               'seen at a slight angle, faces turned away or softly out of focus and not '
               'identifiable. Natural, candid, welcoming - not posed.'),
+    'work':  ('base-E-staffside', '16:9',
+              'One staff member in plain light-grey scrubs at the counter seen from '
+              'behind over the shoulder, working; face not visible. The street glazing '
+              'and daylight beyond. Candid, for a recruitment page.'),
 }
 EXT = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp'}
 
@@ -92,10 +120,12 @@ def part(path):
 
 
 def generate(prompt, refs, aspect, out_stem):
+    """1カット生成して書き出す。"""
     body = {'contents': [{'role': 'user',
                           'parts': [part(r) for r in refs] + [{'text': prompt}]}],
             'generationConfig': {'responseModalities': ['IMAGE'],
-                                 'imageConfig': {'aspectRatio': aspect}}}
+                                 'imageConfig': {'aspectRatio': aspect,
+                                                 'imageSize': SIZE}}}
     headers = {'Content-Type': 'application/json'}
     key = os.environ.get('GEMINI_API_KEY')      # 手元で動かすとき用。クラウドでは不要。
     if key:

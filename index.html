@@ -1351,7 +1351,7 @@ html > body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:n
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-11-06b 1F内装マテリアル＋自動精算機（MEDISMAレジ）</p>
+    <p class="text-small" id="clinic-build">版：2026-11-06c 受付背面サイン（バックライト）を追加</p>
   </aside>
 </div>
 </div>
@@ -1757,6 +1757,13 @@ function medisma(x,z,y){
  marker(x+.53,y+.02,Bk+.03,.09,.16,.05,W,3);
  marker(x+.535,y+.05,Bk+.028,.08,.11,.005,S,3);
 }
+// 壁付けサイン。金属プレートを壁から浮かせ、裏に光のにじみを置いてバックライトに見せる。
+// cx は壁面上の中心X、z は壁面（プレートはここから +z 側へ出る）、cy は中心高さ、w×h はプレート寸法。
+function wallSign(cx,z,cy,w,h){
+ const g=.08,S=.025;                                   // 光のにじみ幅／壁からの浮かし
+ marker(cx-w/2-g,cy-h/2-g,z+.001,w+2*g,h+2*g,.001,'#f6ecd6',0);  // 背面照明
+ marker(cx-w/2,cy-h/2,z+S,w,h,.012,'#c5c8ca',0);                 // ヘアラインステンレス板
+}
 function scene1(){
  // Public route from the chamfered entrance through the 1.3 m corridor to the EV hall.
  floor(0,6.5,3.55,12.4);floor(3.55,7.83,6.94,12.4);
@@ -1789,6 +1796,8 @@ function scene1(){
 
  // 自動精算機（MEDISMAレジ）。図面の「自動釣銭機」はダミーの四角だったので実機の形に。
  medisma(3.64,9.70,.88);
+ // 受付背面のサイン（展開図A面の「サイン」）。①ACの壁の中央、FL+1,750。
+ wallSign(4.83,7.93,1.75,.90,.30);
 
  wall(6.78,10.45,.10,1.95);
  fullFloor1();glassFrontage();if(!isOrbit()&&!isPlan()){
