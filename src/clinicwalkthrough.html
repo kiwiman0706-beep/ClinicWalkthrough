@@ -1324,7 +1324,7 @@ html>body{padding:0}</style>
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-09-25d 処置/バックヤード2をアコーディオンカーテンに</p>
+    <p class="text-small" id="clinic-build">版：2026-11-06 1F内装マテリアル（26.11.04版）を反映</p>
   </aside>
 </div>
 </div>
@@ -1373,7 +1373,7 @@ face([a,b,f,e],c,.89);face([d1,c1,g,h1],c,.96);face([a,d1,h1,e],c,.83);face([b,c
 function wallBox(x,y,z,w,h,d){
  if(!outside&&y<1.55&&y+h>.22)solids.push([x,z,x+w,z+d]);
  const X=x+w,Z=z+d,T=y+h,e=.07;
- const t=.012,TC=()=>color('trim');
+ const t=.012,TC=()=>rf(zoneAt(x+w/2,z+d/2),'trim');
  // side は「その面が向いている部屋から見た壁の向き」。手前が -z の面は、北側の部屋の南壁。
  const sides=[
   [[x,y,z],[X,y,z],[X,T,z],[x,T,z],.89,x+w/2,z-e,'s',(H,th)=>marker(x,H,z-t,w,th,t,TC(),3)],
@@ -1389,9 +1389,9 @@ function wallBox(x,y,z,w,h,d){
    mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t),
    quad=(t0,t1,c,m)=>{if(t1-t0<1e-4)return;
     face([mix(p0,p3,t0),mix(p1,p2,t0),mix(p1,p2,t1),mix(p0,p3,t1)],c,k,m);};
-  quad(at(0),at(S),color('skirt'),3);
+  quad(at(0),at(S),rf(r,'skirt'),3);
   quad(at(S),at(H),dc,3);
-  quad(at(H),at(H+trimH()),color('trim'),3);
+  quad(at(H),at(H+trimH()),rf(r,'trim'),3);
   quad(at(H+trimH()),1,wc,2);
   if(!outside&&y<H&&T>H)trim(H,trimH());
  }
@@ -1413,17 +1413,19 @@ function doorX(x,z,w,type='hinge',direction=1){
  floor(x,z-.03,x+w,z+.13);
  const h=lowWalls()?1.05:2.12;
  if(!lowWalls())wallBox(x,2.12,z,w,.48,.10);
- box(x-.025,0,z-.02,.04,h,.14,'#c8bba6');box(x+w-.015,0,z-.02,.04,h,.14,'#c8bba6');
- if(q('open').checked&&type!=='shut'){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(x,0,direction>0?z:z-w,.045,h,w,'#d4c9b8');}
- else{box(x,0,z,w,h,.045,'#d4c9b8');box(x+w-.12,.94,z-.027,.025,.12,.025,'#727977');}
+ const DC=part(x+w/2,z+.17,'door'),FC=part(x+w/2,z+.17,'frame');
+ box(x-.025,0,z-.02,.04,h,.14,FC);box(x+w-.015,0,z-.02,.04,h,.14,FC);
+ if(q('open').checked&&type!=='shut'){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(x,0,direction>0?z:z-w,.045,h,w,DC);}
+ else{box(x,0,z,w,h,.045,DC);box(x+w-.12,.94,z-.027,.025,.12,.025,'#727977');}
 }
 function doorZ(x,z,d,type='slide',direction=1){
  floor(x-.03,z,x+.13,z+d);
  const h=lowWalls()?1.05:2.12;
  if(!lowWalls())wallBox(x,2.12,z,.10,.48,d);
- box(x-.02,0,z-.025,.14,h,.04,'#c8bba6');box(x-.02,0,z+d-.015,.14,h,.04,'#c8bba6');
- if(q('open').checked&&type!=='shut'){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(direction>0?x:x-d,0,z,d,h,.045,'#d4c9b8');}
- else{box(x,0,z,.045,h,d,'#d4c9b8');box(x-.025,.94,z+d-.12,.025,.12,.025,'#727977');}
+ const DC=part(x+.17,z+d/2,'door'),FC=part(x+.17,z+d/2,'frame');
+ box(x-.02,0,z-.025,.14,h,.04,FC);box(x-.02,0,z+d-.015,.14,h,.04,FC);
+ if(q('open').checked&&type!=='shut'){if(type==='slide'){/* Fully retracted into the wall pocket. */}else box(direction>0?x:x-d,0,z,d,h,.045,DC);}
+ else{box(x,0,z,.045,h,d,DC);box(x-.025,.94,z+d-.12,.025,.12,.025,'#727977');}
 }
 // ---- 可動間仕切り -------------------------------------------------------
 // 平面図の「可動間仕切り（パナソニック）スクリーンウォール」「カーテン」
@@ -1551,6 +1553,12 @@ function rfWall(room,side){
  return rf(room,'wall');
 }
 // 腰まわりの見付け：巾木 60、腰、見切り 35。高さはフロア共通。
+// 建具の色など、設定パネルにピッカーが無い項目。部屋ごとの指定があればそれを使う。
+const PARTDEF={door:'#d4c9b8',frame:'#c8bba6'};
+const part=(x,z,kind)=>{
+ const o=roomFinish[q('view').value][zoneAt(x,z)];
+ return (o&&o[kind])||PARTDEF[kind];
+};
 const skirtH=()=>.06*(lowWalls()?1.05/2.6:1);
 const trimH=()=>.035*(lowWalls()?1.05/2.6:1);
 // In the cut-away overview the walls are squashed to 1.05 m, so squash the dado with them;
@@ -1676,7 +1684,7 @@ function scene0(){
  wallX(5.79,9.76,10.70);wallZ(9.76,5.89,7.14,[[6.47,.63,'hinge',-1]]);
  // 受付。待合側はパイプシャッター付きのカウンター。
  wall(7.95,5.27,.10,2.66);wallX(7.85,5.85,7.95,[[6.21,.82,'slide']]);
- box(5.85,0,5.27,.30,.95,2.36,color('counter'));box(5.80,.95,5.22,.40,.06,2.46,'#f3f0e9');
+ box(5.85,0,5.27,.30,.95,2.36,rf(zoneAt(6.0,6.4),'counter'));box(5.80,.95,5.22,.40,.06,2.46,'#f3f0e9');
  if(!lowWalls())wallBox(5.85,1.98,5.27,.30,.62,2.36);
  if(!lowWalls())for(let z=5.32;z<7.58;z+=.11)box(5.94,1.05,z,.12,.93,.03,'#9aa2a0');
  // 診察室③・診察室②
@@ -1716,8 +1724,8 @@ function scene1(){
  // Existing reception footprint and finish controls.
  wallX(7.83,3.60,6.94,[[6.06,.84,'slide']]);
  wall(6.94,7.83,.10,1.57);wallZ(6.94,9.40,10.45,[[9.70,.75,'slide']]);
- box(3.62,0,9.28,2.61,.82,.44,color('counter'));box(3.57,.82,9.23,2.71,.06,.54,'#f3f0e9');
- box(3.62,0,7.93,.30,.82,1.38,color('counter'));box(3.57,.82,7.91,.40,.06,1.38,'#f3f0e9');
+ box(3.62,0,9.28,2.61,.82,.44,rf(zoneAt(4.9,9.0),'counter'));box(3.57,.82,9.23,2.71,.06,.54,'#f3f0e9');
+ box(3.62,0,7.93,.30,.82,1.38,rf(zoneAt(4.0,8.6),'counter'));box(3.57,.82,7.91,.40,.06,1.38,'#f3f0e9');
  if(q('open').checked)box(6.78,0,8.75,.045,.77,.60,'#d4c9b8');else box(6.23,0,9.32,.60,.77,.055,'#d4c9b8');
 
  box(3.88,.82,8.91,.29,.29,.30,'#d9dcd6');box(3.91,1.11,8.99,.21,.045,.18,'#747d7a');
@@ -1744,9 +1752,9 @@ function scene2(){
 
  wallZ(4.56,2.09,3.82,[[2.43,.88,'slide']]);wall(4.56,3.82,4.20,.10);wallZ(8.76,3.92,8.25,[[4.90,.90,'slide'],[7.32,.90,'slide']]);wall(6.28,2.09,.1,1.73);wallX(2.09,4.66,6.28);
  wallX(7.98,2.50,4.48,[[3.87,.61,'slide']]);wall(4.48,6.08,.10,1.98);
- box(2.50,0,6.10,1.35,.85,.37,color('counter'));box(2.47,.85,6.05,1.41,.06,.48,'#f2eee7');
+ box(2.50,0,6.10,1.35,.85,.37,rf(zoneAt(3.2,6.6),'counter'));box(2.47,.85,6.05,1.41,.06,.48,'#f2eee7');
  // 受付開口の垂れ壁は図面の W1450 シャッターボックスに合わせて 2.50〜4.06。
- if(!lowWalls())wallBox(2.50,2.14,6.1,1.56,.46,.10);box(3.85,0,6.10,.62,.85,.37,color('counter'));box(3.82,.85,6.05,.68,.06,.48,'#f2eee7');
+ if(!lowWalls())wallBox(2.50,2.14,6.1,1.56,.46,.10);box(3.85,0,6.10,.62,.85,.37,rf(zoneAt(4.1,6.6),'counter'));box(3.82,.85,6.05,.68,.06,.48,'#f2eee7');
  // 電動軽量シャッター W1450（ラッチ付）。カウンター天板から垂れ壁の下端まで。
  partition('x',6.10,2.50,4.06,'shutter',-1,.85);
  wallX(6.10,4.58,8.76,[[5.14,.90,'slide'],[7.81,.90,'slide']]);
@@ -1850,6 +1858,24 @@ const fixtures={
 // （仕様書が「待合室・心療内科診察室：壁・天井」と限定しているため）。
 // パネルの「設計の仕様を反映」で入り、「このフロアを全部戻す」で消せる。
 const designScheme={
+ // 1階（2期工事）の内部仕上表・マテリアル（1F）・展開図 2026-11-04 版。
+ // 色はマテリアル表のスウォッチをスキャンから拾った実測値。印刷物なので
+ // 実物より少しくすんでいる可能性があります。
+ '1':{
+  name:'1F 内装マテリアル（設計 2026-11-04）',
+  patient:'all',                  // 仕上表は全室とも同じ壁・天井
+  wall:'#e8e4e0',                 // ビニールクロス 東リ WVP8255（壁・天井共通）
+  floorAll:'#d9d2c5',             // ビニル床シート 東リ FS4276（マチュア）
+  skirtAll:'#e0e0df',             // ソフト巾木 TH60 19（H=60）
+  doorAll:'#ae9183',              // 建具 樹脂化粧シート グレージュアッシュ PA/DC型
+  frameAll:'#ae9183',             // 建具枠も樹脂化粧シート（建具表より建具と同仕上げ）
+  // 床の張り分け。仕上図では待合・WC(P) 側が FS4274、ほかが FS4276。
+  // カウンターは木目メラミン アイカ JC-12031K（天板は石目 LJ-10234KN74）。
+  rooms:{'待合':{floor:'#aeaaa6'},'患者用WC':{floor:'#aeaaa6'},'受付':{counter:'#84716c'}},
+  // アクセント。待合だけはクロスではなく木目クロス WVP8041（受付前の通し壁）。
+  accent:{'待合':['e','#a78972'],'受付':['n','#9f999f'],
+          '診察室1':['n','#aeb7a2'],'診察室2':['n','#cdc9be'],'患者用WC':['n','#afb1b6']}
+ },
  '2':{
   name:'2F 内装マテリアル（設計 2026-09）',
   dado:935,                       // 展開図の腰 935 ＋ 見切り 35
@@ -2136,17 +2162,23 @@ function applyState(st){
  if(typeof g.preset==='string'&&presets[g.preset])q('preset').value=g.preset;
  if(['wood','tile','plain'].includes(g.pattern))q('pattern').value=g.pattern;
  if(Number.isFinite(g.dado))q('dado').value=clamp(g.dado,600,1500);
- // 既定（設計の仕様を当てた状態）から出発し、状態が持つフロアだけ丸ごと差し替える。
+ // 既定（設計の仕様を当てた状態）から出発し、状態が持つ差分だけを上書きする。
+ // null は「既定を取り消す」の意味。
  const fin=JSON.parse(JSON.stringify(BASE.finishes));
+ const KEYS=['wall','floor','ceiling','dado','accent','skirt','trim','counter','door','frame'];
  for(const lv of FLOORS){
   if(!(st.finishes||{})[lv])continue;
-  const out={};
   for(const [name,o]of Object.entries(st.finishes[lv])){
    if(!zones[lv].some(r=>r[0]===name)||!o||typeof o!=='object')continue;
-   const kept={};for(const k of ['wall','floor','ceiling','dado','accent'])if(typeof o[k]==='string'&&hex.test(o[k]))kept[k]=o[k];
-   if(['n','e','s','w'].includes(o.accentSide))kept.accentSide=o.accentSide;
-   if(Object.keys(kept).length)out[name]=kept;}
-  fin[lv]=out;}
+   const t=fin[lv][name]||(fin[lv][name]={});
+   for(const k of KEYS){
+    if(!(k in o))continue;
+    if(o[k]===null)delete t[k];
+    else if(typeof o[k]==='string'&&hex.test(o[k]))t[k]=o[k];}
+   if('accentSide'in o){
+    if(o.accentSide===null)delete t.accentSide;
+    else if(['n','e','s','w'].includes(o.accentSide))t.accentSide=o.accentSide;}
+   if(!Object.keys(t).length)delete fin[lv][name];}}
  roomFinish=fin;
  layouts=JSON.parse(JSON.stringify(BASE.layouts));
  const lim={x:[0,PLAN[0]],z:[0,PLAN[1]],w:[.2,5],d:[.2,5],h:[.2,2.4]};let moved=0;
@@ -2168,7 +2200,15 @@ function stateText(){
  for(const [k,v]of Object.entries(BASE.globals)){const now=k==='dado'?Number(q(k).value):q(k).value;if(now!==v)g[k]=now;}
  const finishes={},furniture={};
  for(const lv of FLOORS){
-  if(JSON.stringify(roomFinish[lv])!==JSON.stringify(BASE.finishes[lv]||{}))finishes[lv]=roomFinish[lv];
+  // 既定（設計の仕様を当てた状態）との差分だけを、部屋ごと・項目ごとに拾う。
+  const base=BASE.finishes[lv]||{},cur=roomFinish[lv]||{},df={};
+  for(const name of new Set([...Object.keys(base),...Object.keys(cur)])){
+   const b=base[name]||{},c=cur[name]||{},o={};
+   for(const k of new Set([...Object.keys(b),...Object.keys(c)]))
+    if(b[k]!==c[k])o[k]=c[k]===undefined?null:c[k];
+   if(Object.keys(o).length)df[name]=o;
+  }
+  if(Object.keys(df).length)finishes[lv]=df;
   const out={};
   layouts[lv].forEach((f,i)=>{const b=BASE.layouts[lv][i],d={};
    for(const k of ['x','z','w','d','h'])if(Math.abs(f[k]-b[k])>1e-6)d[k]=Number(f[k].toFixed(3));
@@ -2490,12 +2530,16 @@ function applyDesign(){
  const out={};
  for(const name of roomNames()){
   const o={floor:d.floorAll};
-  if(d.patient.includes(name)){o.wall=d.wall;o.ceiling=d.wall;o.dado=d.dadoColor;}
+  if(d.skirtAll)o.skirt=d.skirtAll;
+  if(d.doorAll){o.door=d.doorAll;if(d.frameAll)o.frame=d.frameAll;}
+  if(d.patient==='all'||(d.patient||[]).includes(name)){o.wall=d.wall;o.ceiling=d.ceiling||d.wall;if(d.dadoColor)o.dado=d.dadoColor;}
   const a=(d.accent||{})[name];
   if(a){o.accentSide=a[0];o.accent=a[1];}
+  // 部屋ごとの個別指定（床の張り分け、カウンターの色など）を最後に上書き。
+  Object.assign(o,(d.rooms||{})[name]||{});
   out[name]=o;
  }
- roomFinish[v]=out;q('dado').value=d.dado;
+ roomFinish[v]=out;if(d.dado)q('dado').value=d.dado;
  if(d.trim)q('trim').value=d.trim;
  if(d.skirt)q('skirt').value=d.skirt;
  if(d.counter)q('counter').value=d.counter;
