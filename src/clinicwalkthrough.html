@@ -1283,6 +1283,9 @@ html>body{padding:0}</style>
         <label class="clinic-field">その色<input class="form-control form-control-color" type="color" id="clinic-accent" value="#cbcbc3"></label>
       </div>
       <div class="clinic-row">
+        <label class="clinic-field clinic-grow">仕上げ案<select class="form-select" id="clinic-design-alt"><option value="a">案A：木目クロス＋アクセントクロス</option><option value="b">案B：全体シンプル＋受付背面エコカラット</option></select></label>
+      </div>
+      <div class="clinic-row">
         <button type="button" class="btn" id="clinic-design">設計の仕様を反映</button>
       </div>
       <div class="clinic-row">
@@ -1324,7 +1327,7 @@ html>body{padding:0}</style>
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-11-06c 受付背面サイン（バックライト）を追加</p>
+    <p class="text-small" id="clinic-build">版：2026-11-06d 下り天井＋間接照明・仕上げ案A/B切替</p>
   </aside>
 </div>
 </div>
@@ -1730,12 +1733,29 @@ function medisma(x,z,y){
  marker(x+.53,y+.02,Bk+.03,.09,.16,.05,W,3);
  marker(x+.535,y+.05,Bk+.028,.08,.11,.005,S,3);
 }
-// 壁付けサイン。金属プレートを壁から浮かせ、裏に光のにじみを置いてバックライトに見せる。
-// cx は壁面上の中心X、z は壁面（プレートはここから +z 側へ出る）、cy は中心高さ、w×h はプレート寸法。
+// 壁付けサイン。プレートではなく、**立体の切り文字を壁に直付け**する想定。
+// 3Dでは文字までは再現できないので、ロゴが載る範囲を薄い立体として置くだけにして、
+// 生成画像では無地で出させ、あとから本物のロゴを合成する（tools/place-logo.py）。
+// cx は壁面上の中心X、z は壁面（文字はここから +z 側へ出る）、cy は中心高さ、w×h はロゴの外形。
 function wallSign(cx,z,cy,w,h){
- const g=.08,S=.025;                                   // 光のにじみ幅／壁からの浮かし
- marker(cx-w/2-g,cy-h/2-g,z+.001,w+2*g,h+2*g,.001,'#f6ecd6',0);  // 背面照明
- marker(cx-w/2,cy-h/2,z+S,w,h,.012,'#c5c8ca',0);                 // ヘアラインステンレス板
+ marker(cx-w/2,cy-h/2,z+.001,w,h,.016,'#b08d4e',0);    // 切り文字（ゴールド／真鍮調）
+}
+// 受付・診察室ブロックの下り天井。図面では CH2310（2,700 から 390 下げ）で、
+// 待合に面する西辺と南辺に幅150のスリットを取り、チューブライトを仕込む。
+// 照明プランの「上部間接 L1200×3」（西辺）と「IN1 L2360／IN2 L1610」（南辺）がそれ。
+function receptionSoffit(){
+ const X0=3.55,X1=6.94,Z0=3.62,Z1=9.72,Y=2.31,SL=.15,C=color('ceiling');
+ // 下がった天井面（スリットの内側ぶん控える）
+ face([[X0+SL,Y,Z0],[X1,Y,Z0],[X1,Y,Z1-SL],[X0+SL,Y,Z1-SL]],C,1,0);
+ // スリットの底（内部白色）と、そこから覗く光
+ face([[X0,2.70,Z0],[X0+SL,2.70,Z0],[X0+SL,2.70,Z1],[X0,2.70,Z1]],'#fbf6ec',1,0);
+ face([[X0+SL,2.70,Z1-SL],[X1,2.70,Z1-SL],[X1,2.70,Z1],[X0+SL,2.70,Z1]],'#fbf6ec',1,0);
+ // 下り天井の見付け（木目クロスの帯）と、その足元を洗う光
+ const WD=rf('待合','accent')||color('wall');
+ marker(X0,Y,Z1-.012,X1-X0,.39,.012,WD,0);             // 南面の帯
+ marker(X0,Y,Z0,.012,.39,Z1-Z0,WD,0);                  // 西面の帯
+ marker(X0-.01,2.58,Z1-.02,X1-X0+.01,.10,.02,'#fdf4e2',0);   // 間接光（南）
+ marker(X0-.02,2.58,Z0,.02,.10,Z1-Z0,'#fdf4e2',0);           // 間接光（西）
 }
 function scene1(){
  // Public route from the chamfered entrance through the 1.3 m corridor to the EV hall.
@@ -1776,6 +1796,7 @@ function scene1(){
  fullFloor1();glassFrontage();if(!isOrbit()&&!isPlan()){
    // The entrance corner of the waiting room is open to the second floor.
    ceilingPlane(2.6,[[0,2.6,.1],[10.8,2.6,.1],[10.8,2.6,10.18],[0,2.6,10.18]]);
+   receptionSoffit();
    ceilingPlane(2.6,[[3.81,2.6,10.18],[10.8,2.6,10.18],[10.8,2.6,12.43],[3.81,2.6,12.43]]);
    ceilingPlane(5.6,[[0,5.6,10.18],[3.81,5.6,10.18],[3.81,5.6,12.43],[2.43,5.6,12.43],[0,5.6,10]]);
    roomCeilings(2.6);
@@ -1909,14 +1930,18 @@ const designScheme={
   wall:'#e8e4e0',                 // ビニールクロス 東リ WVP8255（壁・天井共通）
   floorAll:'#d9d2c5',             // ビニル床シート 東リ FS4276（マチュア）
   skirtAll:'#e0e0df',             // ソフト巾木 TH60 19（H=60）
-  doorAll:'#ae9183',              // 建具 樹脂化粧シート グレージュアッシュ PA/DC型
-  frameAll:'#ae9183',             // 建具枠も樹脂化粧シート（建具表より建具と同仕上げ）
+  doorAll:'#a89488',              // 建具 グレージュアッシュ PA/DC型（設計士コメントでグレー寄りに）
+  frameAll:'#a89488',             // 建具枠も同仕上げ
   // 床の張り分け。仕上図では待合・WC(P) 側が FS4274、ほかが FS4276。
   // カウンターは木目メラミン アイカ JC-12031K（天板は石目 LJ-10234KN74）。
   rooms:{'待合':{floor:'#aeaaa6'},'患者用WC':{floor:'#aeaaa6'},'受付':{counter:'#84716c'}},
   // アクセント。待合だけはクロスではなく木目クロス WVP8041（受付前の通し壁）。
   accent:{'待合':['e','#a78972'],'受付':['n','#9f999f'],
-          '診察室1':['n','#aeb7a2'],'診察室2':['n','#cdc9be'],'患者用WC':['n','#afb1b6']}
+          '診察室1':['n','#aeb7a2'],'診察室2':['n','#cdc9be'],'患者用WC':['n','#afb1b6']},
+  // 設計士コメントの別案。「全体をシンプルなクロスにして、受付背面壁をエコカラットに」。
+  // 品番は未定なので、色はニュートラルな石目の想定。アクセントクロスは全室やめる。
+  alt:{name:'1F 内装マテリアル 案B（全体シンプル＋受付背面エコカラット）',
+       accent:{'受付':['n','#ded8cf']}}
  },
  '2':{
   name:'2F 内装マテリアル（設計 2026-09）',
@@ -2545,6 +2570,7 @@ for(const n of ['fixtures','fix-power','fix-weak'])
 // ---- per-room finishes -------------------------------------------------
 function refreshRoomPick(){
  q('design').disabled=!designScheme[q('view').value];
+ q('design-alt').disabled=!(designScheme[q('view').value]||{}).alt;
  const keep=q('room-pick').value,names=roomNames();
  q('room-pick').replaceChildren(...names.map(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;return o;}));
  q('room-pick').value=names.includes(keep)?keep:names[0];
@@ -2568,7 +2594,10 @@ function syncRoomFinish(){
 }
 // 仕様書の配色を roomFinish に流し込む。編集も解除も普段どおりできる。
 function applyDesign(){
- const v=q('view').value,d=designScheme[v];if(!d)return 0;
+ const v=q('view').value,base=designScheme[v];if(!base)return 0;
+ // 「仕上げ案」で選んだ案を、基本の仕様に上書きして使う。
+ const alt=q('design-alt')&&q('design-alt').value==='b'&&base.alt?base.alt:null;
+ const d=alt?{...base,...alt}:base;
  const out={};
  for(const name of roomNames()){
   const o={floor:d.floorAll};
@@ -2603,10 +2632,16 @@ q('accent').addEventListener('input',()=>{if(!q('accent-side').value)q('accent-s
  setRoomFinish('accentSide',q('accent-side').value);setRoomFinish('accent',q('accent').value);});
 q('dado').addEventListener('input',()=>{q('dado-value').textContent=q('dado').value+'mm';dirty=true;render();});
 q('room-pick').addEventListener('change',syncRoomFinish);
+// 選んだ案の名前。案Bが無いフロアでは基本の仕様の名前を返す。
+function designName(){
+ const d=designScheme[q('view').value];if(!d)return '';
+ return (q('design-alt').value==='b'&&d.alt&&d.alt.name)||d.name;
+}
+q('design-alt').addEventListener('change',()=>{if(!q('design').disabled)q('design').click();});
 q('design').addEventListener('click',()=>{
  const n=applyDesign();
  syncRoomFinish();refreshRoomPick();
- q('room-info').textContent=n?`${designScheme[q('view').value].name} を ${n} 室に反映しました。「このフロアを全部戻す」で解除できます。`
+ q('room-info').textContent=n?`${designName()} を ${n} 室に反映しました。「このフロアを全部戻す」で解除できます。`
   :'このフロアには設計の仕様書がまだありません。';
  dirty=true;render();
 });

@@ -64,15 +64,15 @@ def make_tmp_page(root):
     return root / TMP
 
 
-def shots(out, root):
+def shots(out, root, variant='a'):
     tmp = make_tmp_page(root)
     try:
-        _shots(out)
+        _shots(out, variant)
     finally:
         tmp.unlink(missing_ok=True)
 
 
-def _shots(out):
+def _shots(out, variant):
     with sync_playwright() as p:
         b = p.chromium.launch(executable_path=CHROME, args=['--no-sandbox'])
         for name, eye, target, fov, (w, h) in SHOTS:
@@ -81,6 +81,10 @@ def _shots(out):
             pg.goto(URL + TMP, wait_until='load'); pg.wait_for_timeout(2200)
             pg.eval_on_selector('#clinic-floor-tabs [data-view="1"]', 'e=>e.click()'); pg.wait_for_timeout(500)
             pg.eval_on_selector('#clinic-mode-tabs [data-mode="inside"]', 'e=>e.click()'); pg.wait_for_timeout(500)
+            if variant != 'a':      # 仕上げ案を切り替えてから撮る
+                pg.eval_on_selector('#clinic-panel-btn', 'e=>e.click()'); pg.wait_for_timeout(200)
+                pg.select_option('#clinic-design-alt', variant); pg.wait_for_timeout(600)
+                pg.eval_on_selector('#clinic-panel-btn', 'e=>e.click()'); pg.wait_for_timeout(300)
             pg.evaluate('a=>window.__rv(a[0],a[1],a[2])', [eye, target, fov]); pg.wait_for_timeout(900)
             pg.evaluate(HIDE); pg.wait_for_timeout(200)
             pg.locator('#clinic-scene').screenshot(path=str(out / f'base-{name}.png'))
@@ -111,5 +115,6 @@ def swatches(out):
 
 if __name__ == '__main__':
     out = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else 'out')
+    variant = sys.argv[2] if len(sys.argv) > 2 else 'a'   # 'a' か 'b'（仕上げ案）
     out.mkdir(parents=True, exist_ok=True)
-    shots(out, pathlib.Path(__file__).resolve().parent.parent); swatches(out)
+    shots(out, pathlib.Path(__file__).resolve().parent.parent, variant); swatches(out)

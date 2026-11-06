@@ -34,10 +34,7 @@ Materials, exactly these:
   very subtle mottling, colour #aeaaa6. Beyond the reception, through the
   openings, the floor turns to a warmer beige of the same family, #d9d2c5.
 - Walls and ceiling: off-white vinyl wallcovering with a very fine texture, #e8e4e0.
-- The wall behind the counter: soft mauve-grey vinyl wallcovering, #9f999f,
-  with a faint vertical weave.
-- The tall panels at the right and the band framing the openings: warm oak
-  wood-grain panel, #a78972, straight grain, matte.
+{walls}
 - Reception counter body: greige-brown wood-grain melamine, #84716c, horizontal grain.
 - Reception counter top: pale stone-look melamine with soft veining, #eee1d4,
   25 mm square edge, slight overhang.
@@ -54,15 +51,19 @@ outlet below. Behind them a tablet on a slim black stand faces the patient, its
 white screen showing a few teal buttons, and beside it a small white card
 terminal. Keep it compact and tidy; no text on the screen.
 
-On the mauve-grey wall above and behind the counter, where the reference shows
-it, hangs the clinic's sign: a brushed stainless plate held 25 mm off the wall on
-four small spacers, with a soft warm halo of concealed light spilling onto the
-wall around it. LEAVE THE PLATE FACE COMPLETELY BLANK - no mark, no symbol, no
-lettering of any kind. The real logo is added afterwards.
+The clinic's sign sits on the wall behind the counter where the reference shows
+the gold rectangle: individual cut-out letters and a logo mark in polished
+brass, fixed flat against the wall with no backing plate, standing about 15 mm
+proud so each shape throws its own soft shadow. RENDER THAT AREA AS BARE WALL -
+no mark, no symbol, no lettering of any kind, not even a blank plate. The real
+logo is added afterwards.
 
-Lighting: ceiling height 2700 mm, flat plasterboard ceiling, recessed round
-downlights at 3500 K, plus a concealed cove light washing the wood band above
-the counter. Soft daylight from the left. Gentle, even, no harsh shadows,
+Lighting: the main ceiling is 2700 mm. Over the reception and the consulting
+rooms it steps down to 2310 mm, and the 150 mm slot at the edge of that
+dropped ceiling carries a concealed warm strip light that washes the fascia
+and the wall below - this L-shaped line of light, running along the front of
+the reception and down its side, is the feature of the room. Recessed round
+downlights at 3500 K elsewhere. Soft daylight from the left. Gentle, even, no harsh shadows,
 no strong colour cast.
 
 Style: high-end architectural photography, full-frame camera at 1.5 m eye
@@ -110,6 +111,7 @@ CUTS = {
               'behind over the shoulder, working; face not visible. The street glazing '
               'and daylight beyond. Candid, for a recruitment page.'),
 }
+WALLS = {'a': '- The wall behind the counter: soft mauve-grey vinyl wallcovering, #9f999f,\n  with a faint vertical weave.\n- The tall panels at the right, and the fascia of the dropped ceiling: warm oak\n  wood-grain wallcovering, #a78972, straight grain, matte.', 'b': '- Every wall is the same plain off-white vinyl wallcovering, #e8e4e0, including\n  the fascia of the dropped ceiling. No wood panelling anywhere.\n- The one exception is the wall behind the counter: textured ceramic wall tile\n  (Japanese ECOCARAT), #ded8cf, a fine vertical relief that catches the grazing\n  light from the cove above. Matte, no gloss.'}
 EXT = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp'}
 
 
@@ -153,11 +155,12 @@ def generate(prompt, refs, aspect, out_stem):
 if __name__ == '__main__':
     refs = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else 'refs')
     out = pathlib.Path(sys.argv[2] if len(sys.argv) > 2 else 'renders')
-    only = sys.argv[3:] or list(CUTS)
+    variant = 'b' if '-b' in sys.argv else 'a'      # 仕上げ案
+    only = [a for a in sys.argv[3:] if not a.startswith('-')] or list(CUTS)
     out.mkdir(parents=True, exist_ok=True)
     swatches = refs / '1F-materials.png'
     for name in only:
         base, aspect, cut = CUTS[name]
         print(name)
-        generate(SPEC.format(cut=cut),
+        generate(SPEC.format(cut=cut, walls=WALLS[variant]),
                  [str(refs / f'{base}.png'), str(swatches)], aspect, str(out / name))
