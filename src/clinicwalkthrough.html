@@ -1327,14 +1327,14 @@ html>body{padding:0}</style>
     </section>
 
     <p class="text-small">各フロア・図面の主図を基準｜壁高・装置・家具は仮設定。2F機械室の床上げは未反映。</p>
-    <p class="text-small" id="clinic-build">版：2026-11-06d 下り天井＋間接照明・仕上げ案A/B切替</p>
+    <p class="text-small" id="clinic-build">版：2026-11-06e 描画の質を改善（間接光・接地影・トーン）</p>
   </aside>
 </div>
 </div>
 <script>
 (()=>{
 const root=document.getElementById('clinic-walkthrough'),q=id=>root.querySelector('#clinic-'+id),canvas=q('scene');
-let faces=[],glassFaces=[],outside=false,signs=[],W=736,H=460,lookYaw=0,lookPitch=0,azimuth=-.65,elevation=.85;
+let faces=[],glassFaces=[],outside=false,signs=[],coves=[],W=736,H=460,lookYaw=0,lookPitch=0,azimuth=-.65,elevation=.85;
 let solids=[],floorAreas=[],glassBarriers=[],walkPos=null,lastMode='';const keys=new Set();
 const isPlan=()=>q('mode').value==='plan';
 const isOrbit=()=>q('mode').value==='orbit',lowWalls=()=>isOrbit()&&q('cut').checked;
@@ -1738,7 +1738,7 @@ function medisma(x,z,y){
 // 生成画像では無地で出させ、あとから本物のロゴを合成する（tools/place-logo.py）。
 // cx は壁面上の中心X、z は壁面（文字はここから +z 側へ出る）、cy は中心高さ、w×h はロゴの外形。
 function wallSign(cx,z,cy,w,h){
- marker(cx-w/2,cy-h/2,z+.001,w,h,.016,'#b08d4e',0);    // 切り文字（ゴールド／真鍮調）
+ marker(cx-w/2,cy-h/2,z+.001,w,h,.016,'#b9bcbd',0);    // 切り文字（シルバー・ヘアライン）
 }
 // 受付・診察室ブロックの下り天井。図面では CH2310（2,700 から 390 下げ）で、
 // 待合に面する西辺と南辺に幅150のスリットを取り、チューブライトを仕込む。
@@ -1756,6 +1756,8 @@ function receptionSoffit(){
  marker(X0,Y,Z0,.012,.39,Z1-Z0,WD,0);                  // 西面の帯
  marker(X0-.01,2.58,Z1-.02,X1-X0+.01,.10,.02,'#fdf4e2',0);   // 間接光（南）
  marker(X0-.02,2.58,Z0,.02,.10,Z1-Z0,'#fdf4e2',0);           // 間接光（西）
+ // シェーダーに光源として渡す（壁と天井をなめるように照らす）
+ coves.push([X0,Z0,X0,Z1,2.60],[X0,Z1,X1,Z1,2.60]);
 }
 function scene1(){
  // Public route from the chamfered entrance through the 1.3 m corridor to the EV hall.
@@ -2334,7 +2336,8 @@ if(gl){
   const vertex='attribute float material;varying float mat;varying vec3 world;attribute vec3 position;attribute vec3 color;uniform vec3 eye;uniform vec3 right;uniform vec3 up;uniform vec3 forward;uniform vec2 scale;varying vec3 rgb;void main(){mat=material;world=position;vec3 v=position-eye;vec3 p=vec3(dot(v,right),dot(v,up),dot(v,forward));float n=0.05;float f=100.0;gl_Position=vec4(p.x*scale.x,p.y*scale.y,((f+n)*p.z-2.0*f*n)/(f-n),p.z);rgb=color;}';
   const fragment=`precision highp float;
   varying vec3 rgb;varying vec3 world;varying float mat;
-  uniform float opacity;uniform float floorStyle;uniform vec4 occluders[8];
+  uniform float opacity;uniform float floorStyle;uniform vec4 occluders[16];
+  uniform vec4 coveSeg[4];uniform float coveY;
   float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
   float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
   void main(){
@@ -2345,7 +2348,7 @@ if(gl){
       if(floorStyle<.5)col*=.96+.065*grain+.012*grain2;
       else if(floorStyle<1.5)col*=.98+.035*noise(world.xz*35.0);
       light=.98;
-      for(int i=0;i<8;i++){vec2 d=max(max(occluders[i].xy-world.xz,world.xz-occluders[i].zw),vec2(0));light=min(light,1.0-.25*exp(-length(d)*7.0));}
+      for(int i=0;i<16;i++){vec2 d=max(max(occluders[i].xy-world.xz,world.xz-occluders[i].zw),vec2(0));light=min(light,1.0-.25*exp(-length(d)*7.0));}
       col*=light;
     }else if(mat>1.5&&mat<2.5){
       col*=.985+.025*noise(world.xy*170.0+world.zy*190.0);
@@ -2356,6 +2359,16 @@ if(gl){
       col*=.955+.09*grain;
       col*=1.0-.08*exp(-world.y*5.0);
     }
+    // 間接照明（下り天井のスリット）。ラインからの距離で壁と天井をなめる。
+    for(int i=0;i<4;i++){
+      vec2 a=coveSeg[i].xy,b=coveSeg[i].zw,ab=b-a,ap=world.xz-a;
+      float t=clamp(dot(ap,ab)/max(dot(ab,ab),1e-4),0.0,1.0);
+      float dxz=length(world.xz-(a+ab*t)),dy=(world.y-coveY)*.7;
+      col+=vec3(.115,.086,.044)*exp(-length(vec2(dxz,dy))*1.9);
+    }
+    // 仕上げ。わずかに彩度とコントラストを足して、のっぺり感を減らす。
+    col=mix(vec3(dot(col,vec3(.299,.587,.114))),col,1.07);
+    col=(col-0.5)*1.05+0.5+0.005;
     gl_FragColor=vec4(clamp(col,0.0,1.0),opacity);
   }`;
 
@@ -2370,7 +2383,20 @@ if(gl){
 }else ctx=canvas.getContext('2d');
 if(!gl&&!ctx){q('render-error').hidden=false;return;}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function shadowRects(){const a=items().map(bounds).slice(0,8);while(a.length<8)a.push([99,99,99,99]);return a;}
+// 床に落とす柔らかい接地影。家具だけでなく、近くの壁の足元も影のもとにする。
+// 視点から近い順に 16 個まで。
+function shadowRects(){
+ const e=camera().eye,near=r=>Math.hypot((r[0]+r[2])/2-e[0],(r[1]+r[3])/2-e[2]);
+ const a=[...items().map(bounds),...architectureSolids].sort((p,q2)=>near(p)-near(q2)).slice(0,16);
+ while(a.length<16)a.push([99,99,99,99]);
+ return a;
+}
+// 間接照明のライン。[x0,z0,x1,z1,y] を 4 本まで。
+function coveBars(){
+ const a=coves.slice(0,4);
+ while(a.length<4)a.push([99,99,99,99,0]);
+ return a;
+}
 function canStand(x,z,ignoreSolids){
  const r=.13;
  if(chamfered()&&chamferDepth(x,z)<r)return false;
@@ -2444,7 +2470,7 @@ q('blender').addEventListener('click',()=>{
 
 function encode(fs){const data=[];for(const f of fs){const h=f.c.slice(1),rgb=[0,2,4].map(i=>clamp(parseInt(h.slice(i,i+2),16)/255*f.k,0,1));for(let i=1;i<f.v.length-1;i++)for(const p of [f.v[0],f.v[i],f.v[i+1]])data.push(...p,...rgb,f.mat||0);}return data;}
 function rebuild(){
-  faces=[];glassFaces=[];signs=[];solids=[];floorAreas=[];glassBarriers=[];scenes[q('view').value]();architectureSolids=solids.slice();renderFurniture();fixtureLayer();
+  faces=[];glassFaces=[];signs=[];coves=[];solids=[];floorAreas=[];glassBarriers=[];scenes[q('view').value]();architectureSolids=solids.slice();renderFurniture();fixtureLayer();
   if(gl){const data=encode(faces);count=data.length/7;gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data.concat(encode(glassFaces))),gl.DYNAMIC_DRAW);}
   dirty=false;
 }
@@ -2455,7 +2481,10 @@ function draw(){
   if(gl){
     gl.viewport(0,0,canvas.width,canvas.height);chamfered()&&!isOrbit()?gl.clearColor(.78,.87,.92,1):gl.clearColor(.947,.944,.926,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(program);
     for(const [u,v]of [['eye',c.eye],['right',c.right],['up',c.up],['forward',c.forward]])gl.uniform3fv(gl.getUniformLocation(program,u),v);
-    gl.uniform1f(gl.getUniformLocation(program,'floorStyle'),{wood:0,tile:1,plain:2}[q('pattern').value]);gl.uniform4fv(gl.getUniformLocation(program,'occluders[0]'),new Float32Array(shadowRects().flat()));gl.uniform2f(gl.getUniformLocation(program,'scale'),c.fx,c.fy);gl.uniform1f(gl.getUniformLocation(program,'opacity'),1);gl.drawArrays(gl.TRIANGLES,0,count);
+    gl.uniform1f(gl.getUniformLocation(program,'floorStyle'),{wood:0,tile:1,plain:2}[q('pattern').value]);gl.uniform4fv(gl.getUniformLocation(program,'occluders[0]'),new Float32Array(shadowRects().flat()));
+    {const cb=coveBars();
+     gl.uniform4fv(gl.getUniformLocation(program,'coveSeg[0]'),new Float32Array(cb.flatMap(b=>b.slice(0,4))));
+     gl.uniform1f(gl.getUniformLocation(program,'coveY'),cb[0][4]||0);}gl.uniform2f(gl.getUniformLocation(program,'scale'),c.fx,c.fy);gl.uniform1f(gl.getUniformLocation(program,'opacity'),1);gl.drawArrays(gl.TRIANGLES,0,count);
     if(glassFaces.length){
       const distance=f=>f.v.reduce((s,p)=>s+p.reduce((t,v,i)=>t+(v-c.eye[i])*c.forward[i],0),0)/f.v.length;
       const data=encode([...glassFaces].sort((a,b)=>distance(b)-distance(a)));gl.bufferSubData(gl.ARRAY_BUFFER,count*28,new Float32Array(data));
